@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { ROLE_LABELS, UserRole } from '@/types/ouvidoria';
+import { useAuth } from '@/contexts/AuthContext';
 
 const cpfMask = (value: string) => {
   return value
@@ -25,6 +26,7 @@ const cpfMask = (value: string) => {
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signIn, signUp, session } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -43,6 +45,12 @@ const Login = () => {
   const [regRole, setRegRole] = useState<UserRole | ''>('');
   const [regPassword, setRegPassword] = useState('');
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
+
+  // Redirect if already authenticated
+  if (session) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
 
   const resetFields = () => {
     setError('');
@@ -67,66 +75,55 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!email || !password) { setError('Preencha todos os campos.'); return; }
     setLoading(true);
-
-    setTimeout(() => {
-      if (email && password) {
-        localStorage.setItem('ouvidoria_user', JSON.stringify({
-          id: '1',
-          name: 'Ana Clara Santos',
-          role: 'administrador',
-          email: email,
-        }));
-        navigate('/dashboard');
-      } else {
-        setError('Preencha todos os campos.');
-      }
+    try {
+      await signIn(email, password);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message === 'Invalid login credentials'
+        ? 'Email ou senha inválidos.'
+        : (err.message || 'Erro ao autenticar.'));
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!regName || !regCpf || !regEmail || !regRegistration || !regRole || !regPassword || !regPasswordConfirm) {
+      setError('Preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    const cpfDigits = regCpf.replace(/\D/g, '');
+    if (cpfDigits.length !== 11) { setError('CPF inválido. Deve conter 11 dígitos.'); return; }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(regEmail)) { setError('Email inválido.'); return; }
+
+    if (regPassword.length < 6) { setError('A senha deve ter no mínimo 6 caracteres.'); return; }
+    if (regPassword !== regPasswordConfirm) { setError('As senhas não coincidem.'); return; }
+
     setLoading(true);
-
-    setTimeout(() => {
-      if (!regName || !regCpf || !regEmail || !regRegistration || !regRole || !regPassword || !regPasswordConfirm) {
-        setError('Preencha todos os campos obrigatórios.');
-        setLoading(false);
-        return;
-      }
-
-      const cpfDigits = regCpf.replace(/\D/g, '');
-      if (cpfDigits.length !== 11) {
-        setError('CPF inválido. Deve conter 11 dígitos.');
-        setLoading(false);
-        return;
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(regEmail)) {
-        setError('Email inválido.');
-        setLoading(false);
-        return;
-      }
-
-      if (regPassword.length < 6) {
-        setError('A senha deve ter no mínimo 6 caracteres.');
-        setLoading(false);
-        return;
-      }
-
-      if (regPassword !== regPasswordConfirm) {
-        setError('As senhas não coincidem.');
-        setLoading(false);
-        return;
-      }
-
+    try {
+      await signUp({
+        name: regName,
+        cpf: regCpf,
+        email: regEmail,
+        registration: regRegistration,
+        role: regRole,
+        password: regPassword,
+      });
       setSuccess('Cadastro realizado com sucesso! Faça login para continuar.');
-      setLoading(false);
       setTimeout(() => switchMode('login'), 2000);
-    }, 800);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao cadastrar.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -152,7 +149,7 @@ const Login = () => {
             Sistema de Gestão de Demandas da Ouvidoria
           </h2>
           <p className="text-primary-foreground/70 leading-relaxed">
-            Plataforma integrada para registro, acompanhamento e resolução de manifestações dos cidadãos. 
+            Plataforma integrada para registro, acompanhamento e resolução de manifestações dos cidadãos.
             Transparência e eficiência no atendimento público.
           </p>
           <div className="mt-12 grid grid-cols-3 gap-6">
@@ -216,9 +213,10 @@ const Login = () => {
               {mode === 'login' ? (
                 <form onSubmit={handleLogin} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email ou Matrícula</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
+                      type="email"
                       placeholder="seu.email@prefeitura.gov.br"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -229,9 +227,6 @@ const Login = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Senha</Label>
-                      <button type="button" className="text-xs text-accent hover:underline">
-                        Esqueceu a senha?
-                      </button>
                     </div>
                     <div className="relative">
                       <Input
@@ -253,7 +248,7 @@ const Login = () => {
                   </div>
 
                   <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
-                    {loading ? 'Entrando...' : 'Entrar'}
+                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...</> : 'Entrar'}
                   </Button>
                 </form>
               ) : (
@@ -354,7 +349,7 @@ const Login = () => {
                   </div>
 
                   <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
-                    {loading ? 'Cadastrando...' : 'Criar conta'}
+                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Cadastrando...</> : 'Criar conta'}
                   </Button>
                 </form>
               )}

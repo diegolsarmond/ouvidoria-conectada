@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileText,
@@ -10,12 +10,13 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronDown,
   Bell,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { ROLE_LABELS } from '@/types/ouvidoria';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,15 +28,21 @@ const navItems = [
 
 const AppLayout = () => {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem('ouvidoria_user') || '{}');
-
-  const handleLogout = () => {
-    localStorage.removeItem('ouvidoria_user');
-    navigate('/login');
+  const handleLogout = async () => {
+    await signOut();
   };
+
+  const userName = profile?.name || 'Usuário';
+  const userRole = profile?.role ? (ROLE_LABELS[profile.role] || profile.role) : 'Atendente';
+  const initials = userName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -78,11 +85,6 @@ const AppLayout = () => {
               >
                 <item.icon className="w-4 h-4" />
                 {item.label}
-                {item.path === '/demandas' && (
-                  <Badge className="ml-auto bg-sidebar-primary/20 text-sidebar-primary text-[10px] px-1.5 py-0 hover:bg-sidebar-primary/30">
-                    8
-                  </Badge>
-                )}
               </Link>
             );
           })}
@@ -92,11 +94,11 @@ const AppLayout = () => {
         <div className="p-3 border-t border-sidebar-border">
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-xs font-bold text-sidebar-primary">
-              {user.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'US'}
+              {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate text-sidebar-foreground">{user.name || 'Usuário'}</p>
-              <p className="text-[10px] text-sidebar-foreground/50 capitalize">{user.role || 'Atendente'}</p>
+              <p className="text-xs font-medium truncate text-sidebar-foreground">{userName}</p>
+              <p className="text-[10px] text-sidebar-foreground/50 capitalize">{userRole}</p>
             </div>
             <button onClick={handleLogout} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors" title="Sair">
               <LogOut className="w-4 h-4" />
