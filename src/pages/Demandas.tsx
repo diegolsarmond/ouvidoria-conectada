@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Filter, Paperclip, Eye, Loader2 } from 'lucide-react';
+import { Search, Plus, Paperclip, Eye, Loader2, Pencil } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
   DEMAND_TYPE_LABELS,
@@ -21,7 +21,9 @@ import {
   DemandType,
   DemandPriority,
 } from '@/types/ouvidoria';
+import type { Demand } from '@/types/ouvidoria';
 import { getDemands } from '@/lib/api';
+import { DemandaModal } from '@/components/modals/NovaDemandaModal';
 
 const statusClass = (status: string) => {
   const map: Record<string, string> = {
@@ -57,6 +59,8 @@ const Demandas = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
 
   const { data: demands = [], isLoading } = useQuery({
     queryKey: ['demands'],
@@ -79,6 +83,9 @@ const Demandas = () => {
     return true;
   });
 
+  const openCreate = () => { setEditingDemand(null); setModalOpen(true); };
+  const openEdit = (demand: Demand) => { setEditingDemand(demand); setModalOpen(true); };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -86,11 +93,13 @@ const Demandas = () => {
           <h1 className="text-2xl font-bold text-foreground">Demandas</h1>
           <p className="text-muted-foreground text-sm">Gerenciamento de manifestações</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={openCreate}>
           <Plus className="w-4 h-4" />
           Nova Demanda
         </Button>
       </div>
+
+      <DemandaModal open={modalOpen} onOpenChange={setModalOpen} demand={editingDemand} />
 
       {/* Filters */}
       <Card className="border shadow-sm">
@@ -197,14 +206,26 @@ const Demandas = () => {
                           {d.assignedToName || '—'}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/demandas/${d.id}`)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/demandas/${d.id}`)}
+                              className="h-7 w-7 p-0"
+                              title="Visualizar"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(d)}
+                              className="h-7 w-7 p-0"
+                              title="Editar"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

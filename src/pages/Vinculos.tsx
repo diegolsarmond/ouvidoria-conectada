@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -5,8 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Plus, Users, Building2, Loader2 } from 'lucide-react';
 import { ROLE_LABELS } from '@/types/ouvidoria';
 import { getUsers, getOrgans } from '@/lib/api';
+import { NovoVinculoModal } from '@/components/modals/NovoVinculoModal';
 
 const Vinculos = () => {
+  const [modalOpen, setModalOpen] = useState(false);
+
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['users'],
     queryFn: getUsers,
@@ -34,9 +38,10 @@ const Vinculos = () => {
           <h1 className="text-2xl font-bold text-foreground">Vínculos</h1>
           <p className="text-muted-foreground text-sm">Vinculação de usuários a órgãos</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setModalOpen(true)}>
           <Plus className="w-4 h-4" /> Novo Vínculo
         </Button>
+        <NovoVinculoModal open={modalOpen} onOpenChange={setModalOpen} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

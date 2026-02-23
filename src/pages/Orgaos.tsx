@@ -6,9 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Plus, Pencil, Building2, Loader2 } from 'lucide-react';
 import { getOrgans } from '@/lib/api';
+import { OrgaoModal } from '@/components/modals/NovoOrgaoModal';
+import type { Organ } from '@/types/ouvidoria';
 
 const Orgaos = () => {
   const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingOrgan, setEditingOrgan] = useState<Organ | null>(null);
 
   const { data: organs = [], isLoading } = useQuery({
     queryKey: ['organs'],
@@ -21,6 +25,9 @@ const Orgaos = () => {
     return o.name.toLowerCase().includes(s) || o.acronym.toLowerCase().includes(s);
   });
 
+  const openCreate = () => { setEditingOrgan(null); setModalOpen(true); };
+  const openEdit = (organ: Organ) => { setEditingOrgan(organ); setModalOpen(true); };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -28,10 +35,12 @@ const Orgaos = () => {
           <h1 className="text-2xl font-bold text-foreground">Órgãos</h1>
           <p className="text-muted-foreground text-sm">Cadastro de secretarias e órgãos</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={openCreate}>
           <Plus className="w-4 h-4" /> Novo Órgão
         </Button>
       </div>
+
+      <OrgaoModal open={modalOpen} onOpenChange={setModalOpen} organ={editingOrgan} />
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -69,7 +78,7 @@ const Orgaos = () => {
                 </div>
                 <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
                   <span>Atualizado: {organ.updatedAt}</span>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(organ)}>
                     <Pencil className="w-3 h-3" />
                   </Button>
                 </div>

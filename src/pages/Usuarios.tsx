@@ -6,10 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Plus, Pencil, Loader2 } from 'lucide-react';
 import { ROLE_LABELS } from '@/types/ouvidoria';
+import type { User } from '@/types/ouvidoria';
 import { getUsers, getOrgans } from '@/lib/api';
+import { UsuarioModal } from '@/components/modals/NovoUsuarioModal';
 
 const Usuarios = () => {
   const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ['users'],
@@ -30,6 +34,9 @@ const Usuarios = () => {
   const getOrganNames = (organIds: string[]) =>
     organIds.map((id) => organs.find((o) => o.id === id)?.acronym || id);
 
+  const openCreate = () => { setEditingUser(null); setModalOpen(true); };
+  const openEdit = (user: User) => { setEditingUser(user); setModalOpen(true); };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -37,10 +44,12 @@ const Usuarios = () => {
           <h1 className="text-2xl font-bold text-foreground">Usuários</h1>
           <p className="text-muted-foreground text-sm">Gerenciamento de servidores</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={openCreate}>
           <Plus className="w-4 h-4" /> Novo Usuário
         </Button>
       </div>
+
+      <UsuarioModal open={modalOpen} onOpenChange={setModalOpen} user={editingUser} />
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -97,7 +106,7 @@ const Usuarios = () => {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(u)}>
                           <Pencil className="w-3 h-3" />
                         </Button>
                       </td>
