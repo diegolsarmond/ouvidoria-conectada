@@ -1,11 +1,32 @@
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, Building2 } from 'lucide-react';
-import { mockUsers, mockOrgans } from '@/data/mockData';
+import { Plus, Users, Building2, Loader2 } from 'lucide-react';
 import { ROLE_LABELS } from '@/types/ouvidoria';
+import { getUsers, getOrgans } from '@/lib/api';
 
 const Vinculos = () => {
+  const { data: users = [], isLoading: loadingUsers } = useQuery({
+    queryKey: ['users'],
+    queryFn: getUsers,
+  });
+
+  const { data: organs = [], isLoading: loadingOrgans } = useQuery({
+    queryKey: ['organs'],
+    queryFn: getOrgans,
+  });
+
+  const isLoading = loadingUsers || loadingOrgans;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -24,20 +45,20 @@ const Vinculos = () => {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <Building2 className="w-4 h-4" /> Usuários por Órgão
           </h2>
-          {mockOrgans.filter(o => o.status === 'ativo').map((organ) => {
-            const users = mockUsers.filter((u) => u.organs.includes(organ.id));
+          {organs.filter(o => o.status === 'ativo').map((organ) => {
+            const organUsers = users.filter((u) => u.organs.includes(organ.id));
             return (
               <Card key={organ.id} className="border shadow-sm">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold flex items-center justify-between">
                     <span>{organ.name} ({organ.acronym})</span>
-                    <Badge variant="secondary" className="text-[10px]">{users.length} usuário(s)</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{organUsers.length} usuário(s)</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {users.length > 0 ? (
+                  {organUsers.length > 0 ? (
                     <div className="space-y-2">
-                      {users.map((u) => (
+                      {organUsers.map((u) => (
                         <div key={u.id} className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary">
@@ -66,8 +87,8 @@ const Vinculos = () => {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <Users className="w-4 h-4" /> Órgãos por Usuário
           </h2>
-          {mockUsers.map((user) => {
-            const organs = user.organs.map((id) => mockOrgans.find((o) => o.id === id)).filter(Boolean);
+          {users.map((user) => {
+            const userOrgans = user.organs.map((id) => organs.find((o) => o.id === id)).filter(Boolean);
             return (
               <Card key={user.id} className="border shadow-sm">
                 <CardHeader className="pb-2">
@@ -78,7 +99,7 @@ const Vinculos = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
-                    {organs.map((o) => o && (
+                    {userOrgans.map((o) => o && (
                       <Badge key={o.id} variant={user.primaryOrganId === o.id ? 'default' : 'outline'} className="text-xs">
                         {o.acronym}
                         {user.primaryOrganId === o.id && ' ★'}

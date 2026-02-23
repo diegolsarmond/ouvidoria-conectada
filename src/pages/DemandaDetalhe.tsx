@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,14 +25,15 @@ import {
   Forward,
   UserPlus,
   FileText,
+  Loader2,
 } from 'lucide-react';
-import { mockDemands, mockHistory, mockUsers } from '@/data/mockData';
 import {
   DEMAND_STATUS_LABELS,
   DEMAND_TYPE_LABELS,
   PRIORITY_LABELS,
   CHANNEL_LABELS,
 } from '@/types/ouvidoria';
+import { getDemandById, getDemandHistory } from '@/lib/api';
 
 const statusClass = (status: string) => {
   const map: Record<string, string> = {
@@ -64,8 +66,26 @@ const deadlineClass = (days: number) => {
 const DemandaDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const demand = mockDemands.find((d) => d.id === id);
-  const history = mockHistory.filter((h) => h.demandId === id);
+
+  const { data: demand, isLoading: loadingDemand } = useQuery({
+    queryKey: ['demand', id],
+    queryFn: () => getDemandById(id!),
+    enabled: !!id,
+  });
+
+  const { data: history = [] } = useQuery({
+    queryKey: ['demand-history', id],
+    queryFn: () => getDemandHistory(id!),
+    enabled: !!id,
+  });
+
+  if (loadingDemand) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!demand) {
     return (

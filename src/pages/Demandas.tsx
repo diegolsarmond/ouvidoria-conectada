@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Filter, Paperclip, Eye } from 'lucide-react';
-import { mockDemands } from '@/data/mockData';
+import { Search, Plus, Filter, Paperclip, Eye, Loader2 } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
   DEMAND_TYPE_LABELS,
@@ -21,6 +21,7 @@ import {
   DemandType,
   DemandPriority,
 } from '@/types/ouvidoria';
+import { getDemands } from '@/lib/api';
 
 const statusClass = (status: string) => {
   const map: Record<string, string> = {
@@ -57,7 +58,12 @@ const Demandas = () => {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
-  const filtered = mockDemands.filter((d) => {
+  const { data: demands = [], isLoading } = useQuery({
+    queryKey: ['demands'],
+    queryFn: getDemands,
+  });
+
+  const filtered = demands.filter((d) => {
     if (statusFilter !== 'all' && d.status !== statusFilter) return false;
     if (typeFilter !== 'all' && d.type !== typeFilter) return false;
     if (priorityFilter !== 'all' && d.priority !== priorityFilter) return false;
@@ -139,70 +145,78 @@ const Demandas = () => {
       {/* Table */}
       <Card className="border shadow-sm">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Protocolo</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Tipo</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Entrada</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Órgão</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Prazo</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Prioridade</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Responsável</th>
-                  <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((d) => (
-                  <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-mono font-medium text-foreground">
-                      <div className="flex items-center gap-2">
-                        {d.protocol}
-                        {d.attachments && (
-                          <Paperclip className="w-3 h-3 text-muted-foreground" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{DEMAND_TYPE_LABELS[d.type]}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{d.createdAt}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="secondary" className="text-xs">{d.organName}</Badge>
-                    </td>
-                    <td className={`px-4 py-3 text-xs ${deadlineClass(d.daysRemaining)}`}>
-                      {d.daysRemaining <= 0 ? `${Math.abs(d.daysRemaining)}d atrasado` : `${d.daysRemaining}d`}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(d.status)}`}>
-                        {DEMAND_STATUS_LABELS[d.status]}
-                      </span>
-                    </td>
-                    <td className={`px-4 py-3 text-xs font-medium ${priorityClass(d.priority)}`}>
-                      {PRIORITY_LABELS[d.priority]}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-xs">
-                      {d.assignedToName || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/demandas/${d.id}`)}
-                        className="h-7 w-7 p-0"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filtered.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              Nenhuma demanda encontrada com os filtros selecionados.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Protocolo</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Tipo</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Entrada</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Órgão</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Prazo</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Prioridade</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Responsável</th>
+                      <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((d) => (
+                      <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 font-mono font-medium text-foreground">
+                          <div className="flex items-center gap-2">
+                            {d.protocol}
+                            {d.attachments && (
+                              <Paperclip className="w-3 h-3 text-muted-foreground" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{DEMAND_TYPE_LABELS[d.type]}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{d.createdAt}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant="secondary" className="text-xs">{d.organName}</Badge>
+                        </td>
+                        <td className={`px-4 py-3 text-xs ${deadlineClass(d.daysRemaining)}`}>
+                          {d.daysRemaining <= 0 ? `${Math.abs(d.daysRemaining)}d atrasado` : `${d.daysRemaining}d`}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(d.status)}`}>
+                            {DEMAND_STATUS_LABELS[d.status]}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-3 text-xs font-medium ${priorityClass(d.priority)}`}>
+                          {PRIORITY_LABELS[d.priority]}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-xs">
+                          {d.assignedToName || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/demandas/${d.id}`)}
+                            className="h-7 w-7 p-0"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {filtered.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  Nenhuma demanda encontrada com os filtros selecionados.
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
