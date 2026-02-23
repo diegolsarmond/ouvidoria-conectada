@@ -66,28 +66,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [profile, setProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Bootstrap: check existing session
+    // Bootstrap: use onAuthStateChange as the single source of truth.
+    // Supabase v2 fires INITIAL_SESSION on subscribe, so no need for getSession().
     useEffect(() => {
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            setSession(session);
-            setSupabaseUser(session?.user ?? null);
-            if (session?.user) {
-                const p = await fetchProfile(session.user.id);
-                setProfile(p);
-            }
-            setLoading(false);
-        });
-
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
                 setSession(session);
                 setSupabaseUser(session?.user ?? null);
                 if (session?.user) {
-                    const p = await fetchProfile(session.user.id);
-                    setProfile(p);
+                    try {
+                        const p = await fetchProfile(session.user.id);
+                        setProfile(p);
+                    } catch (err) {
+                        console.error('[AuthContext] Failed to fetch profile:', err);
+                        setProfile(null);
+                    }
                 } else {
                     setProfile(null);
                 }
+                setLoading(false);
             }
         );
 

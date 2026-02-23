@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -622,7 +623,7 @@ const DemandaDetalhe = () => {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold">Histórico</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="max-h-[400px] overflow-y-auto">
               {history.length > 0 ? (
                 <div className="relative space-y-0">
                   {history.map((h, i) => (
@@ -744,6 +745,7 @@ const DemandaDetalhe = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Encaminhar Demanda</DialogTitle>
+            <DialogDescription className="sr-only">Selecione o órgão de destino para encaminhar esta demanda.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Select value={encaminharOrganId} onValueChange={setEncaminharOrganId}>
@@ -788,6 +790,7 @@ const DemandaDetalhe = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Atribuir Responsável</DialogTitle>
+            <DialogDescription className="sr-only">Selecione o usuário responsável por esta demanda.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Select value={atribuirUserId} onValueChange={setAtribuirUserId}>

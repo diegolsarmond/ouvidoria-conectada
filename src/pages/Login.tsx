@@ -224,6 +224,7 @@ const Login = () => {
                       placeholder="seu.email@prefeitura.gov.br"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="username"
                       className="h-11"
                     />
                   </div>
@@ -239,6 +240,7 @@ const Login = () => {
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
                         className="h-11 pr-10"
                       />
                       <button
@@ -264,6 +266,7 @@ const Login = () => {
                       placeholder="Nome completo do servidor"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
+                      autoComplete="name"
                       className="h-11"
                     />
                   </div>
@@ -300,6 +303,7 @@ const Login = () => {
                       placeholder="seu.email@prefeitura.gov.br"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
+                      autoComplete="email"
                       className="h-11"
                     />
                   </div>
@@ -328,6 +332,7 @@ const Login = () => {
                           placeholder="Mín. 6 caracteres"
                           value={regPassword}
                           onChange={(e) => setRegPassword(e.target.value)}
+                          autoComplete="new-password"
                           className="h-11 pr-10"
                         />
                         <button
@@ -347,6 +352,7 @@ const Login = () => {
                         placeholder="Repita a senha"
                         value={regPasswordConfirm}
                         onChange={(e) => setRegPasswordConfirm(e.target.value)}
+                        autoComplete="new-password"
                         className="h-11"
                       />
                     </div>
