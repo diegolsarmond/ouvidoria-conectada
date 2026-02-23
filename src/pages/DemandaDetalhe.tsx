@@ -1,5 +1,6 @@
+import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   ArrowLeft,
   User,
@@ -26,6 +34,8 @@ import {
   UserPlus,
   FileText,
   Loader2,
+  Lock,
+  X,
 } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
@@ -33,7 +43,54 @@ import {
   PRIORITY_LABELS,
   CHANNEL_LABELS,
 } from '@/types/ouvidoria';
-import { getDemandById, getDemandHistory } from '@/lib/api';
+import type { DemandStatus } from '@/types/ouvidoria';
+import {
+  getDemandById,
+  getDemandHistory,
+  addDemandHistory,
+  updateDemand,
+  getOrgans,
+  getUsers,
+} from '@/lib/api';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function ensureTimezone(raw: string): string {
+  // Supabase TIMESTAMP (without tz) may come without Z – treat as UTC
+  if (raw && !raw.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(raw)) {
+    return raw + 'Z';
+  }
+  return raw;
+}
+
+function formatDate(raw: string): string {
+  if (!raw) return '—';
+  const d = new Date(ensureTimezone(raw));
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
+function formatDateTime(raw: string): string {
+  if (!raw) return '—';
+  const d = new Date(ensureTimezone(raw));
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
 
 const statusClass = (status: string) => {
   const map: Record<string, string> = {
@@ -66,7 +123,11 @@ const deadlineClass = (days: number) => {
 const DemandaDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const { toast } = useToast();
 
+  // ─── Queries ────────────────────────────────────────────────────────
   const { data: demand, isLoading: loadingDemand } = useQuery({
     queryKey: ['demand', id],
     queryFn: () => getDemandById(id!),
@@ -78,6 +139,248 @@ const DemandaDetalhe = () => {
     queryFn: () => getDemandHistory(id!),
     enabled: !!id,
   });
+
+  const { data: organs = [] } = useQuery({
+    queryKey: ['organs'],
+    queryFn: getOrgans,
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: getUsers,
+  });
+
+  // ─── Andamento (progress entry) state ───────────────────────────────
+  const [andamentoType, setAndamentoType] = useState('');
+  const [andamentoText, setAndamentoText] = useState('');
+  const [submittingAndamento, setSubmittingAndamento] = useState(false);
+
+  // ─── Resposta (response) state ──────────────────────────────────────
+  const [respostaText, setRespostaText] = useState('');
+  const [respostaClassificacao, setRespostaClassificacao] = useState('');
+  const [submittingResposta, setSubmittingResposta] = useState(false);
+
+  // ─── Encaminhar (forward) dialog state ──────────────────────────────
+  const [encaminharOpen, setEncaminharOpen] = useState(false);
+  const [encaminharOrganId, setEncaminharOrganId] = useState('');
+  const [encaminharMotivo, setEncaminharMotivo] = useState('');
+  const [submittingEncaminhar, setSubmittingEncaminhar] = useState(false);
+
+  // ─── Atribuir (assign) dialog state ─────────────────────────────────
+  const [atribuirOpen, setAtribuirOpen] = useState(false);
+  const [atribuirUserId, setAtribuirUserId] = useState('');
+  const [submittingAtribuir, setSubmittingAtribuir] = useState(false);
+
+  // ─── Anexo (attachment) state ───────────────────────────────────────
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Derived: is demand closed? ─────────────────────────────────────
+  const isClosed = demand?.status === 'respondida' || demand?.status === 'concluida' || demand?.status === 'cancelada';
+
+  // ─── Action label map ───────────────────────────────────────────────
+  const ANDAMENTO_LABELS: Record<string, string> = {
+    despacho: 'Despacho',
+    encaminhamento: 'Encaminhamento Interno',
+    solicitacao: 'Solicitação de Informação',
+    analise: 'Análise Técnica',
+  };
+
+  // ─── Handlers ───────────────────────────────────────────────────────
+
+  const handleRegistrarAndamento = async () => {
+    if (!andamentoType || !andamentoText.trim()) {
+      toast({ title: 'Preencha o tipo e a descrição do andamento.', variant: 'destructive' });
+      return;
+    }
+    if (!profile || !demand) {
+      console.error('[Andamento] profile or demand is null', { profile, demand });
+      toast({ title: 'Erro: perfil ou demanda não carregados.', variant: 'destructive' });
+      return;
+    }
+
+    setSubmittingAndamento(true);
+    try {
+      await addDemandHistory({
+        demandId: demand.id,
+        action: ANDAMENTO_LABELS[andamentoType] || andamentoType,
+        description: andamentoText.trim(),
+        userId: profile.id,
+      });
+
+      // If demand is still "registrada", move to "em_analise"
+      if (demand.status === 'registrada') {
+        await updateDemand(demand.id, { status: 'em_analise' });
+        await addDemandHistory({
+          demandId: demand.id,
+          action: 'Alteração de Status',
+          description: 'Status alterado automaticamente ao registrar andamento.',
+          userId: profile.id,
+          fromStatus: 'registrada',
+          toStatus: 'em_analise',
+        });
+        queryClient.invalidateQueries({ queryKey: ['demand', id] });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['demand-history', id] });
+      setAndamentoType('');
+      setAndamentoText('');
+      toast({ title: 'Andamento registrado com sucesso!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao registrar andamento.', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmittingAndamento(false);
+    }
+  };
+
+  const handleEnviarResposta = async () => {
+    if (!respostaText.trim() || !respostaClassificacao) {
+      toast({ title: 'Preencha a resposta e a classificação.', variant: 'destructive' });
+      return;
+    }
+    if (!profile || !demand) {
+      console.error('[Resposta] profile or demand is null', { profile, demand });
+      toast({ title: 'Erro: perfil ou demanda não carregados.', variant: 'destructive' });
+      return;
+    }
+
+    setSubmittingResposta(true);
+    try {
+      const CLASSIFICACAO_LABELS: Record<string, string> = {
+        resolvido: 'Resolvido',
+        nao_atendimento: 'Não Atendimento',
+        impossibilitado: 'Impossibilitado',
+        orientacao: 'Resposta Orientação',
+      };
+
+      // Upload attachment if selected
+      let attachmentUrl: string | null = null;
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const filePath = `demands/${demand.id}/${Date.now()}_${selectedFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('attachments')
+          .upload(filePath, selectedFile);
+        if (uploadError) throw new Error(`Erro ao enviar anexo: ${uploadError.message}`);
+
+        const { data: urlData } = supabase.storage
+          .from('attachments')
+          .getPublicUrl(filePath);
+        attachmentUrl = urlData.publicUrl;
+      }
+
+      const oldStatus = demand.status;
+      const newStatus: DemandStatus = 'respondida';
+
+      await updateDemand(demand.id, { status: newStatus });
+
+      const descriptionWithAttachment = attachmentUrl
+        ? `${respostaText.trim()}\n\n📎 Anexo: ${attachmentUrl}`
+        : respostaText.trim();
+
+      await addDemandHistory({
+        demandId: demand.id,
+        action: `Resposta ao Cidadão — ${CLASSIFICACAO_LABELS[respostaClassificacao] || respostaClassificacao}`,
+        description: descriptionWithAttachment,
+        userId: profile.id,
+        fromStatus: oldStatus,
+        toStatus: newStatus,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['demand', id] });
+      queryClient.invalidateQueries({ queryKey: ['demand-history', id] });
+      queryClient.invalidateQueries({ queryKey: ['demands'] });
+      setRespostaText('');
+      setRespostaClassificacao('');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      toast({ title: 'Resposta enviada com sucesso!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao enviar resposta.', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmittingResposta(false);
+    }
+  };
+
+  const handleEncaminhar = async () => {
+    if (!encaminharOrganId) {
+      toast({ title: 'Selecione o órgão de destino.', variant: 'destructive' });
+      return;
+    }
+    if (!profile || !demand) {
+      console.error('[Encaminhar] profile or demand is null', { profile, demand });
+      toast({ title: 'Erro: perfil ou demanda não carregados.', variant: 'destructive' });
+      return;
+    }
+
+    setSubmittingEncaminhar(true);
+    try {
+      const targetOrgan = organs.find((o) => o.id === encaminharOrganId);
+      const oldStatus = demand.status;
+      const newStatus: DemandStatus = 'em_atendimento';
+
+      await updateDemand(demand.id, { organId: encaminharOrganId, status: newStatus });
+
+      await addDemandHistory({
+        demandId: demand.id,
+        action: `Encaminhamento para ${targetOrgan?.acronym || targetOrgan?.name || 'outro órgão'}`,
+        description: encaminharMotivo.trim() || 'Demanda encaminhada para outro órgão.',
+        userId: profile.id,
+        fromStatus: oldStatus,
+        toStatus: newStatus,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['demand', id] });
+      queryClient.invalidateQueries({ queryKey: ['demand-history', id] });
+      queryClient.invalidateQueries({ queryKey: ['demands'] });
+      setEncaminharOpen(false);
+      setEncaminharOrganId('');
+      setEncaminharMotivo('');
+      toast({ title: 'Demanda encaminhada com sucesso!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao encaminhar.', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmittingEncaminhar(false);
+    }
+  };
+
+  const handleAtribuir = async () => {
+    if (!atribuirUserId) {
+      toast({ title: 'Selecione o usuário responsável.', variant: 'destructive' });
+      return;
+    }
+    if (!profile || !demand) {
+      console.error('[Atribuir] profile or demand is null', { profile, demand });
+      toast({ title: 'Erro: perfil ou demanda não carregados.', variant: 'destructive' });
+      return;
+    }
+
+    setSubmittingAtribuir(true);
+    try {
+      const targetUser = users.find((u) => u.id === atribuirUserId);
+
+      await updateDemand(demand.id, { assignedToId: atribuirUserId });
+
+      await addDemandHistory({
+        demandId: demand.id,
+        action: `Atribuição para ${targetUser?.name || 'usuário'}`,
+        description: `Demanda atribuída para ${targetUser?.name || 'usuário'}.`,
+        userId: profile.id,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['demand', id] });
+      queryClient.invalidateQueries({ queryKey: ['demand-history', id] });
+      setAtribuirOpen(false);
+      setAtribuirUserId('');
+      toast({ title: 'Demanda atribuída com sucesso!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao atribuir.', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmittingAtribuir(false);
+    }
+  };
+
+  // ─── Loading / not found ────────────────────────────────────────────
 
   if (loadingDemand) {
     return (
@@ -120,12 +423,16 @@ const DemandaDetalhe = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1">
-            <Forward className="w-4 h-4" /> Encaminhar
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1">
-            <UserPlus className="w-4 h-4" /> Atribuir
-          </Button>
+          {!isClosed && (
+            <>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setEncaminharOpen(true)}>
+                <Forward className="w-4 h-4" /> Encaminhar
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setAtribuirOpen(true)}>
+                <UserPlus className="w-4 h-4" /> Atribuir
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -136,7 +443,7 @@ const DemandaDetalhe = () => {
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Criada em</p>
             <p className="text-sm font-medium text-foreground mt-0.5 flex items-center gap-1">
               <Calendar className="w-3 h-3 text-muted-foreground" />
-              {demand.createdAt}
+              {formatDate(demand.createdAt)}
             </p>
           </CardContent>
         </Card>
@@ -145,7 +452,7 @@ const DemandaDetalhe = () => {
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Prazo</p>
             <p className={`text-sm font-medium mt-0.5 flex items-center gap-1 ${deadlineClass(demand.daysRemaining)}`}>
               <Clock className="w-3 h-3" />
-              {demand.deadline}
+              {formatDate(demand.deadline)}
             </p>
           </CardContent>
         </Card>
@@ -167,12 +474,28 @@ const DemandaDetalhe = () => {
         </Card>
       </div>
 
+      {/* Closed banner */}
+      {isClosed && (
+        <Card className="border border-amber-500/30 bg-amber-500/5 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Lock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-600">Demanda encerrada</p>
+              <p className="text-xs text-muted-foreground">
+                Esta demanda está com status <strong>{DEMAND_STATUS_LABELS[demand.status]}</strong> e não pode mais receber complementos.
+                Para reabrir, utilize a ação "Reabrir" na lista de demandas.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="dados" className="space-y-4">
         <TabsList className="bg-muted/50">
           <TabsTrigger value="dados">Dados</TabsTrigger>
           <TabsTrigger value="andamentos">Andamentos</TabsTrigger>
-          <TabsTrigger value="resposta">Resposta</TabsTrigger>
+          {!isClosed && <TabsTrigger value="resposta">Resposta</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="dados" className="space-y-4">
@@ -244,31 +567,55 @@ const DemandaDetalhe = () => {
         </TabsContent>
 
         <TabsContent value="andamentos" className="space-y-4">
-          {/* Add entry */}
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Novo Andamento</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo de andamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="despacho">Despacho</SelectItem>
-                  <SelectItem value="encaminhamento">Encaminhamento Interno</SelectItem>
-                  <SelectItem value="solicitacao">Solicitação de Informação</SelectItem>
-                  <SelectItem value="analise">Análise Técnica</SelectItem>
-                </SelectContent>
-              </Select>
-              <Textarea placeholder="Descreva o andamento..." className="min-h-[80px]" />
-              <div className="flex justify-end">
-                <Button size="sm" className="gap-1">
-                  <Send className="w-3 h-3" /> Registrar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Add entry - only visible when demand is open */}
+          {!isClosed ? (
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Novo Andamento</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Select value={andamentoType} onValueChange={setAndamentoType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tipo de andamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="despacho">Despacho</SelectItem>
+                    <SelectItem value="encaminhamento">Encaminhamento Interno</SelectItem>
+                    <SelectItem value="solicitacao">Solicitação de Informação</SelectItem>
+                    <SelectItem value="analise">Análise Técnica</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Textarea
+                  placeholder="Descreva o andamento..."
+                  className="min-h-[80px]"
+                  value={andamentoText}
+                  onChange={(e) => setAndamentoText(e.target.value)}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    className="gap-1"
+                    onClick={handleRegistrarAndamento}
+                    disabled={submittingAndamento}
+                  >
+                    {submittingAndamento ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Send className="w-3 h-3" />
+                    )}
+                    Registrar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border shadow-sm bg-muted/30">
+              <CardContent className="p-5 text-center text-muted-foreground text-sm">
+                <Lock className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                Demanda encerrada — não é possível registrar novos andamentos.
+              </CardContent>
+            </Card>
+          )}
 
           {/* Timeline */}
           <Card className="border shadow-sm">
@@ -288,7 +635,7 @@ const DemandaDetalhe = () => {
                         <p className="text-sm font-medium text-foreground">{h.action}</p>
                         <p className="text-xs text-muted-foreground">{h.description}</p>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          {h.user} • {h.date}
+                          {h.user} • {formatDateTime(h.date)}
                         </p>
                         {h.fromStatus && h.toStatus && (
                           <div className="flex items-center gap-1 mt-1">
@@ -312,39 +659,167 @@ const DemandaDetalhe = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="resposta" className="space-y-4">
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Resposta ao Cidadão</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Textarea placeholder="Digite a resposta para o cidadão..." className="min-h-[150px]" />
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Classificação de conclusão" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="resolvido">Resolvido</SelectItem>
-                  <SelectItem value="nao_atendimento">Não Atendimento</SelectItem>
-                  <SelectItem value="impossibilitado">Impossibilitado</SelectItem>
-                  <SelectItem value="orientacao">Resposta Orientação</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex items-center justify-between">
-                <Button variant="outline" size="sm" className="gap-1">
-                  <Paperclip className="w-3 h-3" /> Anexar
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">Pré-visualizar</Button>
-                  <Button size="sm" className="gap-1">
-                    <Send className="w-3 h-3" /> Enviar Resposta
-                  </Button>
+        {!isClosed && (
+          <TabsContent value="resposta" className="space-y-4">
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Resposta ao Cidadão</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Textarea
+                  placeholder="Digite a resposta para o cidadão..."
+                  className="min-h-[150px]"
+                  value={respostaText}
+                  onChange={(e) => setRespostaText(e.target.value)}
+                />
+                <Select value={respostaClassificacao} onValueChange={setRespostaClassificacao}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Classificação de conclusão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="resolvido">Resolvido</SelectItem>
+                    <SelectItem value="nao_atendimento">Não Atendimento</SelectItem>
+                    <SelectItem value="impossibilitado">Impossibilitado</SelectItem>
+                    <SelectItem value="orientacao">Resposta Orientação</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setSelectedFile(file);
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Paperclip className="w-3 h-3" /> Anexar
+                    </Button>
+                    {selectedFile && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                        <Paperclip className="w-3 h-3" />
+                        {selectedFile.name}
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="gap-1"
+                      onClick={handleEnviarResposta}
+                      disabled={submittingResposta}
+                    >
+                      {submittingResposta ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Send className="w-3 h-3" />
+                      )}
+                      Enviar Resposta
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
+
+      {/* ─── Dialog: Encaminhar ─────────────────────────────────────────── */}
+      <Dialog open={encaminharOpen} onOpenChange={setEncaminharOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Encaminhar Demanda</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Select value={encaminharOrganId} onValueChange={setEncaminharOrganId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o órgão de destino" />
+              </SelectTrigger>
+              <SelectContent>
+                {organs
+                  .filter((o) => o.status === 'ativo' && o.id !== demand.organId)
+                  .map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.acronym} — {o.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Textarea
+              placeholder="Motivo do encaminhamento (opcional)..."
+              className="min-h-[80px]"
+              value={encaminharMotivo}
+              onChange={(e) => setEncaminharMotivo(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEncaminharOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEncaminhar} disabled={submittingEncaminhar} className="gap-1">
+              {submittingEncaminhar ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Forward className="w-4 h-4" />
+              )}
+              Encaminhar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Dialog: Atribuir ───────────────────────────────────────────── */}
+      <Dialog open={atribuirOpen} onOpenChange={setAtribuirOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atribuir Responsável</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Select value={atribuirUserId} onValueChange={setAtribuirUserId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                {users
+                  .filter((u) => u.status === 'ativo')
+                  .map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAtribuirOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAtribuir} disabled={submittingAtribuir} className="gap-1">
+              {submittingAtribuir ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <UserPlus className="w-4 h-4" />
+              )}
+              Atribuir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

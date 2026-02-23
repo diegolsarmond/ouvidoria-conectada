@@ -387,3 +387,28 @@ export async function updateDemand(id: string, input: {
     return mapDemand(data);
 }
 
+export async function addDemandHistory(input: {
+    demandId: string;
+    action: string;
+    description: string;
+    userId: string;
+    fromStatus?: string;
+    toStatus?: string;
+}): Promise<DemandHistory> {
+    const { data, error } = await supabase
+        .from('demand_history')
+        .insert({
+            demand_id: input.demandId,
+            action: input.action,
+            description: input.description,
+            user_id: input.userId,
+            from_status: input.fromStatus ?? null,
+            to_status: input.toStatus ?? null,
+        })
+        .select('*, users(name)')
+        .single();
+
+    if (error) throw error;
+    return mapHistory(data);
+}
+

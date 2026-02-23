@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Paperclip, Eye, Loader2, Pencil } from 'lucide-react';
+import { Search, Plus, Paperclip, Eye, Loader2, Pencil, RotateCcw } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
   DEMAND_TYPE_LABELS,
@@ -22,8 +22,10 @@ import {
   DemandPriority,
 } from '@/types/ouvidoria';
 import type { Demand } from '@/types/ouvidoria';
-import { getDemands } from '@/lib/api';
+import { getDemands, updateDemand, addDemandHistory } from '@/lib/api';
 import { DemandaModal } from '@/components/modals/NovaDemandaModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const statusClass = (status: string) => {
   const map: Record<string, string> = {
@@ -55,12 +57,16 @@ const deadlineClass = (days: number) => {
 
 const Demandas = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
 
   const { data: demands = [], isLoading } = useQuery({
     queryKey: ['demands'],
@@ -85,6 +91,38 @@ const Demandas = () => {
 
   const openCreate = () => { setEditingDemand(null); setModalOpen(true); };
   const openEdit = (demand: Demand) => { setEditingDemand(demand); setModalOpen(true); };
+
+  const handleReabrir = async (demand: Demand) => {
+    if (!profile) {
+      toast({ title: 'Erro: perfil não carregado.', variant: 'destructive' });
+      return;
+    }
+    setReopeningId(demand.id);
+    try {
+      const oldStatus = demand.status;
+      const newStatus: DemandStatus = 'em_analise';
+
+      await updateDemand(demand.id, { status: newStatus });
+
+      await addDemandHistory({
+        demandId: demand.id,
+        action: 'Reabertura de Demanda',
+        description: `Demanda reaberta. Status anterior: ${DEMAND_STATUS_LABELS[oldStatus]}.`,
+        userId: profile.id,
+        fromStatus: oldStatus,
+        toStatus: newStatus,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['demands'] });
+      queryClient.invalidateQueries({ queryKey: ['demand', demand.id] });
+      queryClient.invalidateQueries({ queryKey: ['demand-history', demand.id] });
+      toast({ title: 'Demanda reaberta com sucesso!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao reabrir demanda.', description: err.message, variant: 'destructive' });
+    } finally {
+      setReopeningId(null);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -225,6 +263,22 @@ const Demandas = () => {
                             >
                               <Pencil className="w-3 h-3" />
                             </Button>
+                            {(d.status === 'respondida' || d.status === 'concluida' || d.status === 'cancelada') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleReabrir(d)}
+                                className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                title="Reabrir"
+                                disabled={reopeningId === d.id}
+                              >
+                                {reopeningId === d.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="w-3 h-3" />
+                                )}
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>

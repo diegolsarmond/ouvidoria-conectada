@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,10 +47,14 @@ const Login = () => {
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
 
   // Redirect if already authenticated
-  if (session) {
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (session) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [session, navigate]);
+
+  if (session) return null;
+
 
   const resetFields = () => {
     setError('');
