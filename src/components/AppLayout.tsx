@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileText,
@@ -31,8 +31,15 @@ const AppLayout = () => {
   const { profile, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const navigate = useNavigate();
+
   const handleLogout = async () => {
-    await signOut();
+    try {
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const userName = profile?.name || 'Usuário';
@@ -45,7 +52,7 @@ const AppLayout = () => {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="h-screen flex bg-background overflow-hidden">
       {/* Sidebar */}
       <aside
         className={cn(

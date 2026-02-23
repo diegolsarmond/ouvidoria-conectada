@@ -70,16 +70,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Supabase v2 fires INITIAL_SESSION on subscribe, so no need for getSession().
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (event, session) => {
                 setSession(session);
                 setSupabaseUser(session?.user ?? null);
+
                 if (session?.user) {
-                    try {
-                        const p = await fetchProfile(session.user.id);
-                        setProfile(p);
-                    } catch (err) {
-                        console.error('[AuthContext] Failed to fetch profile:', err);
-                        setProfile(null);
+                    // Evita fetch infinito de profile em refresh de token
+                    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !profile || profile.id !== session.user.id) {
+                        try {
+                            const p = await fetchProfile(session.user.id);
+                            setProfile(p);
+                        } catch (err) {
+                            console.error('[AuthContext] Failed to fetch profile:', err);
+                            setProfile(null);
+                        }
                     }
                 } else {
                     setProfile(null);
@@ -127,10 +131,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signOut = async () => {
-        await supabase.auth.signOut();
-        setSession(null);
-        setSupabaseUser(null);
-        setProfile(null);
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error('[AuthContext] Error signing out from Supabase:', error);
+        } finally {
+            setSession(null);
+            setSupabaseUser(null);
+            setProfile(null);
+        }
     };
 
     const refreshProfile = async () => {

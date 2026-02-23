@@ -55,6 +55,27 @@ const deadlineClass = (days: number) => {
   return 'deadline-ok';
 };
 
+function ensureTimezone(raw: string): string {
+  if (raw && !raw.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(raw)) {
+    return raw + 'Z';
+  }
+  return raw;
+}
+
+function formatDateTime(raw: string): string {
+  if (!raw) return '—';
+  const d = new Date(ensureTimezone(raw));
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
 const Demandas = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -225,7 +246,7 @@ const Demandas = () => {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{DEMAND_TYPE_LABELS[d.type]}</td>
-                        <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{d.createdAt}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{formatDateTime(d.createdAt)}</td>
                         <td className="px-4 py-3">
                           <Badge variant="secondary" className="text-xs">{d.organName}</Badge>
                         </td>
