@@ -1,0 +1,136 @@
+import { useState } from 'react';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  FileText,
+  Building2,
+  Users,
+  Link2,
+  Shield,
+  LogOut,
+  Menu,
+  X,
+  ChevronDown,
+  Bell,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+
+const navItems = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/demandas', label: 'Demandas', icon: FileText },
+  { path: '/orgaos', label: 'Órgãos', icon: Building2 },
+  { path: '/usuarios', label: 'Usuários', icon: Users },
+  { path: '/vinculos', label: 'Vínculos', icon: Link2 },
+];
+
+const AppLayout = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const user = JSON.parse(localStorage.getItem('ouvidoria_user') || '{}');
+
+  const handleLogout = () => {
+    localStorage.removeItem('ouvidoria_user');
+    navigate('/login');
+  };
+
+  return (
+    <div className="min-h-screen flex bg-background">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {/* Logo */}
+        <div className="p-5 flex items-center gap-3 border-b border-sidebar-border">
+          <div className="w-10 h-10 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
+            <Shield className="w-5 h-5 text-sidebar-primary" />
+          </div>
+          <div>
+            <h1 className="font-bold text-sm text-sidebar-foreground">Ouvidoria</h1>
+            <p className="text-[10px] text-sidebar-foreground/60">Municipal</p>
+          </div>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto text-sidebar-foreground/60">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-3 space-y-1">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+                {item.path === '/demandas' && (
+                  <Badge className="ml-auto bg-sidebar-primary/20 text-sidebar-primary text-[10px] px-1.5 py-0 hover:bg-sidebar-primary/30">
+                    8
+                  </Badge>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User section */}
+        <div className="p-3 border-t border-sidebar-border">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-xs font-bold text-sidebar-primary">
+              {user.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'US'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate text-sidebar-foreground">{user.name || 'Usuário'}</p>
+              <p className="text-[10px] text-sidebar-foreground/50 capitalize">{user.role || 'Atendente'}</p>
+            </div>
+            <button onClick={handleLogout} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors" title="Sair">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-foreground/20 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <header className="h-14 border-b bg-card flex items-center px-4 gap-3 sticky top-0 z-30">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-muted-foreground">
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex-1" />
+          <button className="relative text-muted-foreground hover:text-foreground transition-colors">
+            <Bell className="w-5 h-5" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] flex items-center justify-center font-bold">3</span>
+          </button>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default AppLayout;
