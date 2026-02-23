@@ -12,6 +12,9 @@ export default {
         "2xl": "1400px",
       },
     },
+    fontFamily: {
+      sans: ['Inter', 'system-ui', 'sans-serif'],
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -56,6 +59,25 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        status: {
+          registered: "hsl(var(--status-registered))",
+          analysis: "hsl(var(--status-analysis))",
+          attending: "hsl(var(--status-attending))",
+          responded: "hsl(var(--status-responded))",
+          completed: "hsl(var(--status-completed))",
+          cancelled: "hsl(var(--status-cancelled))",
+        },
+        priority: {
+          low: "hsl(var(--priority-low))",
+          medium: "hsl(var(--priority-medium))",
+          high: "hsl(var(--priority-high))",
+          urgent: "hsl(var(--priority-urgent))",
+        },
+        deadline: {
+          ok: "hsl(var(--deadline-ok))",
+          warning: "hsl(var(--deadline-warning))",
+          danger: "hsl(var(--deadline-danger))",
         },
       },
       borderRadius: {
