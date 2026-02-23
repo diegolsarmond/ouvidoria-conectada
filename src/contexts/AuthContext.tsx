@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@/types/ouvidoria';
@@ -66,6 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [profile, setProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Ref to always have the latest profile value inside the closure
+    const profileRef = useRef<User | null>(null);
+    // Guard against concurrent fetches
+    const fetchingRef = useRef(false);
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        profileRef.current = profile;
+    }, [profile]);
+
     // Bootstrap: use onAuthStateChange as the single source of truth.
     // Supabase v2 fires INITIAL_SESSION on subscribe, so no need for getSession().
     useEffect(() => {
@@ -75,14 +85,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSupabaseUser(session?.user ?? null);
 
                 if (session?.user) {
-                    // Evita fetch infinito de profile em refresh de token
-                    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || !profile || profile.id !== session.user.id) {
+                    // Only fetch profile on login/initial events or when user ID actually changed.
+                    // TOKEN_REFRESHED should NOT re-fetch if we already have the profile.
+                    const currentProfile = profileRef.current;
+                    const needsFetch =
+                        event === 'INITIAL_SESSION' ||
+                        event === 'SIGNED_IN' ||
+                        !currentProfile ||
+                        currentProfile.id !== session.user.id;
+
+                    if (needsFetch && !fetchingRef.current) {
+                        fetchingRef.current = true;
                         try {
                             const p = await fetchProfile(session.user.id);
                             setProfile(p);
                         } catch (err) {
                             console.error('[AuthContext] Failed to fetch profile:', err);
                             setProfile(null);
+                        } finally {
+                            fetchingRef.current = false;
                         }
                     }
                 } else {
