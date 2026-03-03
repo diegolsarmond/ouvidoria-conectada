@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { createUser, updateUser, getOrgans } from '@/lib/api';
 import { ROLE_LABELS, type UserRole, type User } from '@/types/ouvidoria';
@@ -25,6 +25,7 @@ const emptyForm = {
     name: '', cpf: '', email: '', registration: '',
     role: 'atendente' as UserRole, status: 'ativo' as 'ativo' | 'inativo',
     primaryOrganId: '', organIds: [] as string[],
+    password: '', confirmPassword: '',
 };
 
 export function UsuarioModal({ open, onOpenChange, user }: Props) {
@@ -32,6 +33,8 @@ export function UsuarioModal({ open, onOpenChange, user }: Props) {
     const isEdit = !!user;
     const { data: organs = [] } = useQuery({ queryKey: ['organs'], queryFn: getOrgans });
     const [form, setForm] = useState(emptyForm);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -44,14 +47,18 @@ export function UsuarioModal({ open, onOpenChange, user }: Props) {
                 status: user.status,
                 primaryOrganId: user.primaryOrganId || '',
                 organIds: [...user.organs],
+                password: '',
+                confirmPassword: '',
             });
         } else {
             setForm(emptyForm);
         }
+        setShowPassword(false);
+        setShowConfirmPassword(false);
     }, [user, open]);
 
     const createMutation = useMutation({
-        mutationFn: () => createUser(form),
+        mutationFn: () => createUser({ ...form, password: form.password || undefined }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
             toast.success('Usuário cadastrado com sucesso!');
@@ -61,10 +68,10 @@ export function UsuarioModal({ open, onOpenChange, user }: Props) {
     });
 
     const updateMutation = useMutation({
-        mutationFn: () => updateUser(user!.id, form),
+        mutationFn: () => updateUser(user!.id, { ...form, password: form.password || undefined }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
-            toast.success('Usuário atualizado com sucesso!');
+            toast.success('Usuário atualizado com sucesso!' + (form.password ? ' Senha redefinida.' : ''));
             onOpenChange(false);
         },
         onError: (err: any) => toast.error('Erro: ' + (err.message || 'Erro desconhecido')),
@@ -87,6 +94,25 @@ export function UsuarioModal({ open, onOpenChange, user }: Props) {
             toast.error('Preencha os campos obrigatórios.');
             return;
         }
+
+        // Validate password
+        if (form.password || form.confirmPassword) {
+            if (form.password.length < 6) {
+                toast.error('A senha deve ter pelo menos 6 caracteres.');
+                return;
+            }
+            if (form.password !== form.confirmPassword) {
+                toast.error('As senhas não coincidem.');
+                return;
+            }
+        }
+
+        // On create, password is required
+        if (!isEdit && !form.password) {
+            toast.error('Informe uma senha para o novo usuário.');
+            return;
+        }
+
         if (isEdit) updateMutation.mutate();
         else createMutation.mutate();
     };
@@ -118,6 +144,55 @@ export function UsuarioModal({ open, onOpenChange, user }: Props) {
                             <Label htmlFor="usr-email">Email *</Label>
                             <Input id="usr-email" type="email" placeholder="servidor@prefeitura.gov.br" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                         </div>
+
+                        {/* Password fields */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="usr-password">
+                                {isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha *'}
+                            </Label>
+                            <div className="relative">
+                                <Input
+                                    id="usr-password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder={isEdit ? 'Deixe em branco para manter a senha atual' : 'Mínimo 6 caracteres'}
+                                    value={form.password}
+                                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                                    className="pr-10"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="usr-confirm-password">Confirmar senha{!isEdit && ' *'}</Label>
+                            <div className="relative">
+                                <Input
+                                    id="usr-confirm-password"
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    placeholder="Repita a senha"
+                                    value={form.confirmPassword}
+                                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                                    className="pr-10"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                >
+                                    {showConfirmPassword ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                                </Button>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="usr-role">Perfil *</Label>

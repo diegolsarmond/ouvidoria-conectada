@@ -319,6 +319,7 @@ export async function updateUser(id: string, input: {
     status: 'ativo' | 'inativo';
     primaryOrganId?: string;
     organIds: string[];
+    password?: string;
 }): Promise<User> {
     const { data, error } = await supabase
         .from('users')
@@ -336,6 +337,15 @@ export async function updateUser(id: string, input: {
         .single();
 
     if (error) throw error;
+
+    // If password was provided, update it via RPC
+    if (input.password) {
+        const { error: pwError } = await supabase.rpc('admin_reset_password', {
+            p_user_id: id,
+            p_new_password: input.password,
+        });
+        if (pwError) throw pwError;
+    }
 
     // Sync user_organs: delete all then re-insert
     const { error: delError } = await supabase
@@ -355,6 +365,14 @@ export async function updateUser(id: string, input: {
     }
 
     return mapUser(data, input.organIds);
+}
+
+export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
+    const { error } = await supabase.rpc('admin_reset_password', {
+        p_user_id: userId,
+        p_new_password: newPassword,
+    });
+    if (error) throw error;
 }
 
 export async function updateDemand(id: string, input: {
