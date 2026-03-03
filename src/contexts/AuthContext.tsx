@@ -90,38 +90,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    // Bootstrap: use onAuthStateChange as the single source of truth.
-    // Supabase v2 fires INITIAL_SESSION on subscribe, so no need for getSession().
-    // Safety timeout: if onAuthStateChange never fires (e.g. network down), stop loading.
+    // Bootstrap: getSession first (synchronous from storage), then listen for changes.
     useEffect(() => {
-        const safetyTimeout = setTimeout(() => {
-            if (loading) {
-                console.warn('[AuthContext] Safety timeout – stopping loading spinner.');
-                setLoading(false);
+        let cancelled = false;
+
+        const bootstrap = async () => {
+            try {
+                const { data: { session: initialSession } } = await supabase.auth.getSession();
+                if (cancelled) return;
+
+                if (initialSession?.user) {
+                    const p = await fetchProfile(initialSession.user.id);
+                    if (cancelled) return;
+
+                    if (p) {
+                        setSession(initialSession);
+                        setSupabaseUser(initialSession.user);
+                        setProfile(p);
+                    } else {
+                        // Stale session – user no longer exists in our DB
+                        console.warn('[AuthContext] Profile not found on bootstrap. Clearing.');
+                        await supabase.auth.signOut().catch(() => {});
+                        setSession(null);
+                        setSupabaseUser(null);
+                        setProfile(null);
+                    }
+                }
+            } catch (err) {
+                console.error('[AuthContext] Bootstrap error:', err);
+                // Clear everything to avoid stuck state
+                setSession(null);
+                setSupabaseUser(null);
+                setProfile(null);
+            } finally {
+                if (!cancelled) setLoading(false);
             }
-        }, 5000);
+        };
+
+        bootstrap();
+
+        // Listen for subsequent auth changes (sign-in, sign-out, token refresh)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, newSession) => {
                 console.debug('[AuthContext] event:', event, 'session:', !!newSession);
 
-                // ── SIGNED_OUT: fast path ──
+                if (event === 'INITIAL_SESSION') {
+                    // Already handled by bootstrap above – skip
+                    return;
+                }
+
                 if (event === 'SIGNED_OUT' || !newSession) {
                     setSession(null);
                     setSupabaseUser(null);
                     setProfile(null);
                     setLoading(false);
-                    recoveryAttemptedRef.current = false;
                     return;
                 }
 
-                setSession(newSession);
-                setSupabaseUser(newSession.user);
-
-                // Only fetch profile on login/initial events or when user ID actually changed.
-                // TOKEN_REFRESHED should NOT re-fetch if we already have the profile.
+                // SIGNED_IN or TOKEN_REFRESHED
                 const currentProfile = profileRef.current;
                 const needsFetch =
-                    event === 'INITIAL_SESSION' ||
                     event === 'SIGNED_IN' ||
                     !currentProfile ||
                     currentProfile.id !== newSession.user.id;
@@ -131,28 +159,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     try {
                         const p = await fetchProfile(newSession.user.id);
                         if (p) {
+                            setSession(newSession);
+                            setSupabaseUser(newSession.user);
                             setProfile(p);
-                            recoveryAttemptedRef.current = false;
                         } else {
-                            // Profile not found – token may be stale or user was deleted
                             console.warn('[AuthContext] Profile not found. Clearing session.');
                             await clearSession();
                         }
                     } catch (err) {
                         console.error('[AuthContext] Failed to fetch profile:', err);
-                        // If this was an initial load or sign-in and we already tried once,
-                        // wipe the session to break the loop.
-                        if (!recoveryAttemptedRef.current) {
-                            recoveryAttemptedRef.current = true;
-                            console.warn('[AuthContext] First failure – will retry on next event.');
-                            setProfile(null);
-                        } else {
-                            console.warn('[AuthContext] Repeated failure – clearing session to break loop.');
-                            await clearSession();
-                        }
+                        await clearSession();
                     } finally {
                         fetchingRef.current = false;
                     }
+                } else {
+                    // Token refresh with existing profile – just update session
+                    setSession(newSession);
+                    setSupabaseUser(newSession.user);
                 }
 
                 setLoading(false);
@@ -160,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
 
         return () => {
-            clearTimeout(safetyTimeout);
+            cancelled = true;
             subscription.unsubscribe();
         };
     }, []);
