@@ -180,34 +180,45 @@ export async function createUser(input: {
     status: 'ativo' | 'inativo';
     primaryOrganId?: string;
     organIds: string[];
+    password?: string;
 }): Promise<User> {
-    const { data, error } = await supabase
-        .from('users')
-        .insert({
-            name: input.name,
-            cpf: input.cpf,
-            email: input.email,
-            registration: input.registration,
-            role: input.role,
-            status: input.status,
-            primary_organ_id: input.primaryOrganId || null,
-        })
-        .select('*')
-        .single();
+    // Usa a função RPC admin_create_user que cria auth.users + public.users
+    const tempPassword = input.password || Math.random().toString(36).slice(-12) + 'A1!';
 
-    if (error) throw error;
+    const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
+        p_email: input.email,
+        p_password: tempPassword,
+        p_name: input.name,
+        p_cpf: input.cpf,
+        p_registration: input.registration,
+        p_role: input.role,
+        p_status: input.status,
+        p_primary_organ_id: input.primaryOrganId || null,
+    });
+
+    if (rpcError) throw rpcError;
+
+    const userId = newUserId as string;
 
     // Insert user_organs relationships
     if (input.organIds.length > 0) {
         const { error: uoError } = await supabase
             .from('user_organs')
             .insert(input.organIds.map((organId) => ({
-                user_id: data.id,
+                user_id: userId,
                 organ_id: organId,
             })));
         if (uoError) throw uoError;
     }
 
+    // Fetch the created user to return
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+    if (error) throw error;
     return mapUser(data, input.organIds);
 }
 
