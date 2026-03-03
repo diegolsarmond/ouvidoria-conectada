@@ -92,7 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Bootstrap: use onAuthStateChange as the single source of truth.
     // Supabase v2 fires INITIAL_SESSION on subscribe, so no need for getSession().
+    // Safety timeout: if onAuthStateChange never fires (e.g. network down), stop loading.
     useEffect(() => {
+        const safetyTimeout = setTimeout(() => {
+            if (loading) {
+                console.warn('[AuthContext] Safety timeout – stopping loading spinner.');
+                setLoading(false);
+            }
+        }, 5000);
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, newSession) => {
                 console.debug('[AuthContext] event:', event, 'session:', !!newSession);
@@ -152,7 +159,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         );
 
-        return () => subscription.unsubscribe();
+        return () => {
+            clearTimeout(safetyTimeout);
+            subscription.unsubscribe();
+        };
     }, []);
 
     const signIn = async (email: string, password: string) => {
