@@ -183,40 +183,58 @@ export async function createUser(input: {
     organIds: string[];
     password?: string;
 }): Promise<User> {
-    // Usa a função RPC admin_create_user que cria auth.users + public.users
-    const tempPassword = input.password || Math.random().toString(36).slice(-12) + 'A1!';
+    if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("A chave VITE_SUPABASE_SERVICE_ROLE_KEY não foi configurada. Necessária para criar usuários administradores.");
+    }
 
-    const { data: newUserId, error: rpcError } = await supabase.rpc('admin_create_user', {
-        p_email: input.email,
-        p_password: tempPassword,
-        p_name: input.name,
-        p_cpf: input.cpf,
-        p_registration: input.registration,
-        p_role: input.role,
-        p_status: input.status,
-        p_primary_organ_id: input.primaryOrganId || null,
+    const passwordToUse = input.password || Math.random().toString(36).slice(-12) + 'A1!';
+
+    // 1. Criar o usuário no Auth (Identidades, GoTrue) oficialmente usando o Admin API
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: input.email,
+        password: passwordToUse,
+        email_confirm: true, // Auto-confirmar
+        user_metadata: { name: input.name, cpf: input.cpf }
     });
 
-    if (rpcError) throw rpcError;
+    if (authError) throw authError;
 
-    const userId = newUserId as string;
+    const newUserId = authData.user.id;
 
-    // Insert user_organs relationships
+    // 2. Criar o perfil do usuário em public.users
+    const { error: profileError } = await supabase.from('users').insert({
+        id: newUserId,
+        name: input.name,
+        cpf: input.cpf,
+        email: input.email,
+        registration: input.registration,
+        role: input.role,
+        status: input.status,
+        primary_organ_id: input.primaryOrganId || null,
+    });
+
+    if (profileError) {
+        // Fallback: se der erro na tabela public, tenta apagar no auth para não deixar dados órfãos
+        await supabaseAdmin.auth.admin.deleteUser(newUserId).catch(() => { });
+        throw profileError;
+    }
+
+    // 3. Insert user_organs relationships
     if (input.organIds.length > 0) {
         const { error: uoError } = await supabase
             .from('user_organs')
             .insert(input.organIds.map((organId) => ({
-                user_id: userId,
+                user_id: newUserId,
                 organ_id: organId,
             })));
         if (uoError) throw uoError;
     }
 
-    // Fetch the created user to return
+    // 4. Fetch the created user to return
     const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('id', newUserId)
         .single();
 
     if (error) throw error;
