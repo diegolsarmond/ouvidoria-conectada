@@ -31,33 +31,47 @@ export function useAuth() {
     return ctx;
 }
 
-async function fetchProfile(userId: string): Promise<User | null> {
-    const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+/** Fetch profile with a hard timeout to avoid hanging forever */
+async function fetchProfile(userId: string, timeoutMs = 8000): Promise<User | null> {
+    return Promise.race([
+        fetchProfileInner(userId),
+        new Promise<null>((resolve) => setTimeout(() => {
+            console.warn('[AuthContext] fetchProfile timed out');
+            resolve(null);
+        }, timeoutMs)),
+    ]);
+}
 
-    if (error || !data) return null;
+async function fetchProfileInner(userId: string): Promise<User | null> {
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
 
-    // Also fetch organs
-    const { data: uo } = await supabase
-        .from('user_organs')
-        .select('organ_id')
-        .eq('user_id', userId);
+        if (error || !data) return null;
 
-    return {
-        id: data.id,
-        name: data.name,
-        cpf: data.cpf,
-        email: data.email,
-        registration: data.registration,
-        role: data.role,
-        status: data.status,
-        organs: (uo ?? []).map((r: any) => r.organ_id),
-        primaryOrganId: data.primary_organ_id ?? undefined,
-        avatar: data.avatar ?? undefined,
-    };
+        const { data: uo } = await supabase
+            .from('user_organs')
+            .select('organ_id')
+            .eq('user_id', userId);
+
+        return {
+            id: data.id,
+            name: data.name,
+            cpf: data.cpf,
+            email: data.email,
+            registration: data.registration,
+            role: data.role,
+            status: data.status,
+            organs: (uo ?? []).map((r: any) => r.organ_id),
+            primaryOrganId: data.primary_organ_id ?? undefined,
+            avatar: data.avatar ?? undefined,
+        };
+    } catch {
+        return null;
+    }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -66,119 +80,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [profile, setProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Ref to always have the latest profile value inside the closure
     const profileRef = useRef<User | null>(null);
-    // Guard against concurrent fetches
-    const fetchingRef = useRef(false);
-    // Guard against infinite session-recovery loops
-    const recoveryAttemptedRef = useRef(false);
 
-    // Keep ref in sync with state
     useEffect(() => {
         profileRef.current = profile;
     }, [profile]);
 
-    // Helper: clear everything and sign out (removes stale tokens from localStorage)
-    const clearSession = async () => {
+    const clearAll = () => {
         setSession(null);
         setSupabaseUser(null);
         setProfile(null);
-        try {
-            await supabase.auth.signOut();
-        } catch {
-            // Ignore signOut errors – the goal is to wipe localStorage tokens
-        }
     };
 
-    // Bootstrap: getSession first (synchronous from storage), then listen for changes.
+    // ── Bootstrap: getSession → fetch profile → done ──
     useEffect(() => {
         let cancelled = false;
 
-        const bootstrap = async () => {
+        const init = async () => {
             try {
-                const { data: { session: initialSession } } = await supabase.auth.getSession();
+                const { data: { session: s } } = await supabase.auth.getSession();
                 if (cancelled) return;
 
-                if (initialSession?.user) {
-                    const p = await fetchProfile(initialSession.user.id);
-                    if (cancelled) return;
+                if (!s?.user) {
+                    clearAll();
+                    return;
+                }
 
-                    if (p) {
-                        setSession(initialSession);
-                        setSupabaseUser(initialSession.user);
-                        setProfile(p);
-                    } else {
-                        // Stale session – user no longer exists in our DB
-                        console.warn('[AuthContext] Profile not found on bootstrap. Clearing.');
-                        await supabase.auth.signOut().catch(() => {});
-                        setSession(null);
-                        setSupabaseUser(null);
-                        setProfile(null);
-                    }
+                const p = await fetchProfile(s.user.id);
+                if (cancelled) return;
+
+                if (p) {
+                    setSession(s);
+                    setSupabaseUser(s.user);
+                    setProfile(p);
+                } else {
+                    console.warn('[AuthContext] No profile found – clearing stale session');
+                    clearAll();
+                    supabase.auth.signOut().catch(() => {});
                 }
             } catch (err) {
-                console.error('[AuthContext] Bootstrap error:', err);
-                // Clear everything to avoid stuck state
-                setSession(null);
-                setSupabaseUser(null);
-                setProfile(null);
+                console.error('[AuthContext] Init error:', err);
+                if (!cancelled) clearAll();
             } finally {
                 if (!cancelled) setLoading(false);
             }
         };
 
-        bootstrap();
+        init();
 
-        // Listen for subsequent auth changes (sign-in, sign-out, token refresh)
+        // ── Listen for SUBSEQUENT auth changes (non-blocking!) ──
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, newSession) => {
+            (event, newSession) => {
                 console.debug('[AuthContext] event:', event, 'session:', !!newSession);
 
-                if (event === 'INITIAL_SESSION') {
-                    // Already handled by bootstrap above – skip
-                    return;
-                }
+                // Skip INITIAL_SESSION – handled by init() above
+                if (event === 'INITIAL_SESSION') return;
 
                 if (event === 'SIGNED_OUT' || !newSession) {
-                    setSession(null);
-                    setSupabaseUser(null);
-                    setProfile(null);
+                    clearAll();
                     setLoading(false);
                     return;
                 }
 
-                // SIGNED_IN or TOKEN_REFRESHED
+                // For SIGNED_IN / TOKEN_REFRESHED – fire and forget (no await!)
                 const currentProfile = profileRef.current;
                 const needsFetch =
                     event === 'SIGNED_IN' ||
                     !currentProfile ||
                     currentProfile.id !== newSession.user.id;
 
-                if (needsFetch && !fetchingRef.current) {
-                    fetchingRef.current = true;
-                    try {
-                        const p = await fetchProfile(newSession.user.id);
+                if (needsFetch) {
+                    // Fire-and-forget profile fetch
+                    fetchProfile(newSession.user.id).then(p => {
                         if (p) {
                             setSession(newSession);
                             setSupabaseUser(newSession.user);
                             setProfile(p);
                         } else {
-                            console.warn('[AuthContext] Profile not found. Clearing session.');
-                            await clearSession();
+                            console.warn('[AuthContext] Profile not found after', event);
+                            clearAll();
+                            supabase.auth.signOut().catch(() => {});
                         }
-                    } catch (err) {
-                        console.error('[AuthContext] Failed to fetch profile:', err);
-                        await clearSession();
-                    } finally {
-                        fetchingRef.current = false;
-                    }
+                        setLoading(false);
+                    }).catch(() => {
+                        clearAll();
+                        setLoading(false);
+                    });
                 } else {
-                    // Token refresh with existing profile – just update session
+                    // Just update session/token, keep profile
                     setSession(newSession);
                     setSupabaseUser(newSession.user);
+                    setLoading(false);
                 }
-
-                setLoading(false);
             }
         );
 
@@ -194,20 +187,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signUp = async (data: SignUpData) => {
-        // 1. Create the auth user
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: data.email,
             password: data.password,
-            options: {
-                data: { name: data.name },
-            },
+            options: { data: { name: data.name } },
         });
         if (authError) throw authError;
 
         const authUserId = authData.user?.id;
         if (!authUserId) throw new Error('Erro ao criar conta de autenticação.');
 
-        // 2. Insert row in our public.users table with the same id
         const { error: profileError } = await supabase
             .from('users')
             .insert({
@@ -224,14 +213,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signOut = async () => {
+        clearAll();
         try {
             await supabase.auth.signOut();
         } catch (error) {
-            console.error('[AuthContext] Error signing out from Supabase:', error);
-        } finally {
-            setSession(null);
-            setSupabaseUser(null);
-            setProfile(null);
+            console.error('[AuthContext] Error signing out:', error);
         }
     };
 
