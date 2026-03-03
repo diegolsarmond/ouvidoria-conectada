@@ -26,7 +26,7 @@ const cpfMask = (value: string) => {
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, session } = useAuth();
+  const { signIn, signUp, session, loading: authLoading } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -46,12 +46,21 @@ const Login = () => {
   const [regPassword, setRegPassword] = useState('');
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (only after auth loading finishes)
   useEffect(() => {
-    if (session) {
+    if (!authLoading && session) {
       navigate('/dashboard', { replace: true });
     }
-  }, [session, navigate]);
+  }, [session, authLoading, navigate]);
+
+  // Don't render login form while auth is still loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (session) return null;
 

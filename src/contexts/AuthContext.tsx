@@ -70,45 +70,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profileRef = useRef<User | null>(null);
     // Guard against concurrent fetches
     const fetchingRef = useRef(false);
+    // Guard against infinite session-recovery loops
+    const recoveryAttemptedRef = useRef(false);
 
     // Keep ref in sync with state
     useEffect(() => {
         profileRef.current = profile;
     }, [profile]);
 
+    // Helper: clear everything and sign out (removes stale tokens from localStorage)
+    const clearSession = async () => {
+        setSession(null);
+        setSupabaseUser(null);
+        setProfile(null);
+        try {
+            await supabase.auth.signOut();
+        } catch {
+            // Ignore signOut errors – the goal is to wipe localStorage tokens
+        }
+    };
+
     // Bootstrap: use onAuthStateChange as the single source of truth.
     // Supabase v2 fires INITIAL_SESSION on subscribe, so no need for getSession().
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                setSession(session);
-                setSupabaseUser(session?.user ?? null);
+            async (event, newSession) => {
+                console.debug('[AuthContext] event:', event, 'session:', !!newSession);
 
-                if (session?.user) {
-                    // Only fetch profile on login/initial events or when user ID actually changed.
-                    // TOKEN_REFRESHED should NOT re-fetch if we already have the profile.
-                    const currentProfile = profileRef.current;
-                    const needsFetch =
-                        event === 'INITIAL_SESSION' ||
-                        event === 'SIGNED_IN' ||
-                        !currentProfile ||
-                        currentProfile.id !== session.user.id;
-
-                    if (needsFetch && !fetchingRef.current) {
-                        fetchingRef.current = true;
-                        try {
-                            const p = await fetchProfile(session.user.id);
-                            setProfile(p);
-                        } catch (err) {
-                            console.error('[AuthContext] Failed to fetch profile:', err);
-                            setProfile(null);
-                        } finally {
-                            fetchingRef.current = false;
-                        }
-                    }
-                } else {
+                // ── SIGNED_OUT: fast path ──
+                if (event === 'SIGNED_OUT' || !newSession) {
+                    setSession(null);
+                    setSupabaseUser(null);
                     setProfile(null);
+                    setLoading(false);
+                    recoveryAttemptedRef.current = false;
+                    return;
                 }
+
+                setSession(newSession);
+                setSupabaseUser(newSession.user);
+
+                // Only fetch profile on login/initial events or when user ID actually changed.
+                // TOKEN_REFRESHED should NOT re-fetch if we already have the profile.
+                const currentProfile = profileRef.current;
+                const needsFetch =
+                    event === 'INITIAL_SESSION' ||
+                    event === 'SIGNED_IN' ||
+                    !currentProfile ||
+                    currentProfile.id !== newSession.user.id;
+
+                if (needsFetch && !fetchingRef.current) {
+                    fetchingRef.current = true;
+                    try {
+                        const p = await fetchProfile(newSession.user.id);
+                        if (p) {
+                            setProfile(p);
+                            recoveryAttemptedRef.current = false;
+                        } else {
+                            // Profile not found – token may be stale or user was deleted
+                            console.warn('[AuthContext] Profile not found. Clearing session.');
+                            await clearSession();
+                        }
+                    } catch (err) {
+                        console.error('[AuthContext] Failed to fetch profile:', err);
+                        // If this was an initial load or sign-in and we already tried once,
+                        // wipe the session to break the loop.
+                        if (!recoveryAttemptedRef.current) {
+                            recoveryAttemptedRef.current = true;
+                            console.warn('[AuthContext] First failure – will retry on next event.');
+                            setProfile(null);
+                        } else {
+                            console.warn('[AuthContext] Repeated failure – clearing session to break loop.');
+                            await clearSession();
+                        }
+                    } finally {
+                        fetchingRef.current = false;
+                    }
+                }
+
                 setLoading(false);
             }
         );
