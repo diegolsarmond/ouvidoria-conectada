@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,11 +28,12 @@ const cpfMask = (value: string) => {
 const Login = () => {
   const navigate = useNavigate();
   const { signIn, signUp, session, loading: authLoading } = useAuth();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'recover'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recoverEmail, setRecoverEmail] = useState('');
 
   // Login fields
   const [email, setEmail] = useState('');
@@ -77,10 +79,11 @@ const Login = () => {
     setRegRole('');
     setRegPassword('');
     setRegPasswordConfirm('');
+    setRecoverEmail('');
     setShowPassword(false);
   };
 
-  const switchMode = (newMode: 'login' | 'register') => {
+  const switchMode = (newMode: 'login' | 'register' | 'recover') => {
     resetFields();
     setMode(newMode);
   };
@@ -134,6 +137,25 @@ const Login = () => {
       setTimeout(() => switchMode('login'), 2000);
     } catch (err: any) {
       setError(err.message || 'Erro ao cadastrar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRecover = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!recoverEmail) { setError('Informe o email cadastrado.'); return; }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(recoverEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
+    } catch (err: any) {
+      setError(err.message || 'Erro ao enviar email de recuperação.');
     } finally {
       setLoading(false);
     }
@@ -198,12 +220,14 @@ const Login = () => {
 
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-foreground">
-              {mode === 'login' ? 'Acessar sistema' : 'Cadastro de usuário'}
+              {mode === 'login' ? 'Acessar sistema' : mode === 'register' ? 'Cadastro de usuário' : 'Recuperar senha'}
             </h2>
             <p className="text-muted-foreground mt-1">
               {mode === 'login'
                 ? 'Entre com suas credenciais para continuar'
-                : 'Preencha os dados para criar sua conta'}
+                : mode === 'register'
+                ? 'Preencha os dados para criar sua conta'
+                : 'Informe seu email para receber o link de redefinição'}
             </p>
           </div>
 
@@ -241,6 +265,9 @@ const Login = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Senha</Label>
+                      <button type="button" onClick={() => switchMode('recover')} className="text-xs text-accent hover:underline">
+                        Esqueci minha senha
+                      </button>
                     </div>
                     <div className="relative">
                       <Input
@@ -266,63 +293,30 @@ const Login = () => {
                     {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...</> : 'Entrar'}
                   </Button>
                 </form>
-              ) : (
+              ) : mode === 'register' ? (
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="reg-name">Nome completo *</Label>
-                    <Input
-                      id="reg-name"
-                      placeholder="Nome completo do servidor"
-                      value={regName}
-                      onChange={(e) => setRegName(e.target.value)}
-                      autoComplete="name"
-                      className="h-11"
-                    />
+                    <Input id="reg-name" placeholder="Nome completo do servidor" value={regName} onChange={(e) => setRegName(e.target.value)} autoComplete="name" className="h-11" />
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="reg-cpf">CPF *</Label>
-                      <Input
-                        id="reg-cpf"
-                        placeholder="000.000.000-00"
-                        value={regCpf}
-                        onChange={(e) => setRegCpf(cpfMask(e.target.value))}
-                        className="h-11"
-                        maxLength={14}
-                      />
+                      <Input id="reg-cpf" placeholder="000.000.000-00" value={regCpf} onChange={(e) => setRegCpf(cpfMask(e.target.value))} className="h-11" maxLength={14} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reg-registration">Matrícula *</Label>
-                      <Input
-                        id="reg-registration"
-                        placeholder="MAT-000"
-                        value={regRegistration}
-                        onChange={(e) => setRegRegistration(e.target.value)}
-                        className="h-11"
-                      />
+                      <Input id="reg-registration" placeholder="MAT-000" value={regRegistration} onChange={(e) => setRegRegistration(e.target.value)} className="h-11" />
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="reg-email">Email institucional *</Label>
-                    <Input
-                      id="reg-email"
-                      type="email"
-                      placeholder="seu.email@prefeitura.gov.br"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      autoComplete="email"
-                      className="h-11"
-                    />
+                    <Input id="reg-email" type="email" placeholder="seu.email@prefeitura.gov.br" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} autoComplete="email" className="h-11" />
                   </div>
-
                   <div className="space-y-2">
                     <Label>Perfil de acesso *</Label>
                     <Select value={regRole} onValueChange={(v) => setRegRole(v as UserRole)}>
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Selecione o perfil" />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-11"><SelectValue placeholder="Selecione o perfil" /></SelectTrigger>
                       <SelectContent>
                         {Object.entries(ROLE_LABELS).map(([k, v]) => (
                           <SelectItem key={k} value={k}>{v}</SelectItem>
@@ -330,65 +324,61 @@ const Login = () => {
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="reg-password">Senha *</Label>
                       <div className="relative">
-                        <Input
-                          id="reg-password"
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Mín. 6 caracteres"
-                          value={regPassword}
-                          onChange={(e) => setRegPassword(e.target.value)}
-                          autoComplete="new-password"
-                          className="h-11 pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        >
+                        <Input id="reg-password" type={showPassword ? 'text' : 'password'} placeholder="Mín. 6 caracteres" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} autoComplete="new-password" className="h-11 pr-10" />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reg-password-confirm">Confirmar *</Label>
-                      <Input
-                        id="reg-password-confirm"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Repita a senha"
-                        value={regPasswordConfirm}
-                        onChange={(e) => setRegPasswordConfirm(e.target.value)}
-                        autoComplete="new-password"
-                        className="h-11"
-                      />
+                      <Input id="reg-password-confirm" type={showPassword ? 'text' : 'password'} placeholder="Repita a senha" value={regPasswordConfirm} onChange={(e) => setRegPasswordConfirm(e.target.value)} autoComplete="new-password" className="h-11" />
                     </div>
                   </div>
-
                   <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
                     {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Cadastrando...</> : 'Criar conta'}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleRecover} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="recover-email">Email cadastrado</Label>
+                    <Input
+                      id="recover-email"
+                      type="email"
+                      placeholder="seu.email@prefeitura.gov.br"
+                      value={recoverEmail}
+                      onChange={(e) => setRecoverEmail(e.target.value)}
+                      autoComplete="email"
+                      className="h-11"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
+                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</> : 'Enviar link de recuperação'}
                   </Button>
                 </form>
               )}
 
               {/* Toggle mode */}
-              <div className="mt-5 text-center text-sm text-muted-foreground">
-                {mode === 'login' ? (
-                  <>
+              <div className="mt-5 text-center text-sm text-muted-foreground space-y-1">
+                {mode !== 'login' && (
+                  <div>
+                    <button type="button" onClick={() => switchMode('login')} className="text-accent font-medium hover:underline">
+                      Voltar ao login
+                    </button>
+                  </div>
+                )}
+                {mode === 'login' && (
+                  <div>
                     Não tem uma conta?{' '}
                     <button type="button" onClick={() => switchMode('register')} className="text-accent font-medium hover:underline">
                       Cadastre-se
                     </button>
-                  </>
-                ) : (
-                  <>
-                    Já possui conta?{' '}
-                    <button type="button" onClick={() => switchMode('login')} className="text-accent font-medium hover:underline">
-                      Fazer login
-                    </button>
-                  </>
+                  </div>
                 )}
               </div>
             </CardContent>
