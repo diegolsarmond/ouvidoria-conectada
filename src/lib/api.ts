@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { supabaseAdmin } from './supabase-admin';
 import type { Organ, User, Demand, DemandHistory } from '@/types/ouvidoria';
 
 // ─── Mappers (snake_case → camelCase) ─────────────────────────────────────────
@@ -338,12 +339,16 @@ export async function updateUser(id: string, input: {
 
     if (error) throw error;
 
-    // If password was provided, update it via RPC
+    // Se uma senha for fornecida durante a edição de usuário, usamos a Auth.Admin.API genuína do Supabase
+    // Isso atualiza a senha de forma que o GoTrue compreenda, evitando corrupções no Auth
     if (input.password) {
-        const { error: pwError } = await supabase.rpc('admin_reset_password', {
-            p_user_id: id,
-            p_new_password: input.password,
-        });
+        if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+            throw new Error("A chave VITE_SUPABASE_SERVICE_ROLE_KEY não foi configurada no .env para redefinição de senhas.");
+        }
+        const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(
+            id,
+            { password: input.password }
+        );
         if (pwError) throw pwError;
     }
 
@@ -368,10 +373,13 @@ export async function updateUser(id: string, input: {
 }
 
 export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
-    const { error } = await supabase.rpc('admin_reset_password', {
-        p_user_id: userId,
-        p_new_password: newPassword,
-    });
+    if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("A chave VITE_SUPABASE_SERVICE_ROLE_KEY não foi configurada no .env para redefinição de senhas.");
+    }
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        { password: newPassword }
+    );
     if (error) throw error;
 }
 
