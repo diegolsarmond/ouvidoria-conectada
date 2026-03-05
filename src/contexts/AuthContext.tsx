@@ -35,9 +35,9 @@ export function useAuth() {
 async function fetchProfile(userId: string, timeoutMs = 8000): Promise<User | null> {
     return Promise.race([
         fetchProfileInner(userId),
-        new Promise<null>((resolve) => setTimeout(() => {
+        new Promise<never>((_, reject) => setTimeout(() => {
             console.warn('[AuthContext] fetchProfile timed out');
-            resolve(null);
+            reject(new Error('Timeout ao buscar perfil'));
         }, timeoutMs)),
     ]);
 }
@@ -50,7 +50,11 @@ async function fetchProfileInner(userId: string): Promise<User | null> {
             .eq('id', userId)
             .maybeSingle();
 
-        if (error || !data) return null;
+        if (error) {
+            console.error('[AuthContext] fetchProfileInner error:', error);
+            throw error;
+        }
+        if (!data) return null;
 
         const { data: uo } = await supabase
             .from('user_organs')
@@ -69,8 +73,9 @@ async function fetchProfileInner(userId: string): Promise<User | null> {
             primaryOrganId: data.primary_organ_id ?? undefined,
             avatar: data.avatar ?? undefined,
         };
-    } catch {
-        return null;
+    } catch (err) {
+        console.error('[AuthContext] fetchProfileInner catch block:', err);
+        throw err;
     }
 }
 
@@ -116,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 } else {
                     console.warn('[AuthContext] No profile found – clearing stale session');
                     clearAll();
-                    supabase.auth.signOut().catch(() => {});
+                    supabase.auth.signOut().catch(() => { });
                 }
             } catch (err) {
                 console.error('[AuthContext] Init error:', err);
@@ -159,10 +164,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         } else {
                             console.warn('[AuthContext] Profile not found after', event);
                             clearAll();
-                            supabase.auth.signOut().catch(() => {});
+                            supabase.auth.signOut().catch(() => { });
                         }
                         setLoading(false);
-                    }).catch(() => {
+                    }).catch((err) => {
+                        console.error('[AuthContext] AuthStateChange fetchProfile failed:', err);
                         clearAll();
                         setLoading(false);
                     });
@@ -209,7 +215,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 status: 'ativo',
             });
 
-        if (profileError) throw profileError;
+        if (profileError) {
+            console.error('[AuthContext] signUp profile insertion error:', profileError);
+            if (profileError.code === '23505' || profileError.code === '409') {
+                throw new Error('Usuário já cadastrado com este e-mail ou CPF.');
+            }
+            throw profileError;
+        }
     };
 
     const signOut = async () => {
