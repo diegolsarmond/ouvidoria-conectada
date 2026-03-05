@@ -15,6 +15,7 @@ import {
 import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { ROLE_LABELS, UserRole } from '@/types/ouvidoria';
 import { useAuth } from '@/contexts/AuthContext';
+import { NetworkErrorBanner } from '@/components/NetworkErrorBanner';
 
 const cpfMask = (value: string) => {
   return value
@@ -97,9 +98,14 @@ const Login = () => {
       await signIn(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message === 'Invalid login credentials'
-        ? 'Email ou senha inválidos.'
-        : (err.message || 'Erro ao autenticar.'));
+      const message = err?.message || '';
+      if (message.includes('Failed to fetch') || message.includes('Network') || message.includes('ERR_NETWORK')) {
+        setError('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else {
+        setError(err.message === 'Invalid login credentials'
+          ? 'Email ou senha inválidos.'
+          : (err.message || 'Erro ao autenticar.'));
+      }
     } finally {
       setLoading(false);
     }
@@ -136,7 +142,12 @@ const Login = () => {
       setSuccess('Cadastro realizado com sucesso! Faça login para continuar.');
       setTimeout(() => switchMode('login'), 2000);
     } catch (err: any) {
-      setError(err.message || 'Erro ao cadastrar.');
+      const message = err?.message || '';
+      if (message.includes('Failed to fetch') || message.includes('Network') || message.includes('ERR_NETWORK')) {
+        setError('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else {
+        setError(err.message || 'Erro ao cadastrar.');
+      }
     } finally {
       setLoading(false);
     }
@@ -162,6 +173,8 @@ const Login = () => {
   };
 
   return (
+    <>
+    <NetworkErrorBanner />
     <div className="min-h-screen flex">
       {/* Left panel - branding */}
       <div className="hidden lg:flex lg:w-1/2 login-gradient items-center justify-center p-12 relative overflow-hidden">
@@ -391,6 +404,7 @@ const Login = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
