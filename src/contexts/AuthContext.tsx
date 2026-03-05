@@ -103,7 +103,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const init = async () => {
             try {
-                const { data: { session: s } } = await supabase.auth.getSession();
+                const { data: { session: s }, error: sessionError } = await supabase.auth.getSession();
+                
+                // Handle invalid refresh token error
+                if (sessionError) {
+                    console.warn('[AuthContext] Session error:', sessionError.message);
+                    if (sessionError.message?.includes('Invalid Refresh Token') || 
+                        sessionError.message?.includes('Refresh Token Not Found')) {
+                        // Clear invalid session data
+                        await supabase.auth.signOut({ scope: 'local' }).catch(() => { });
+                    }
+                    clearAll();
+                    return;
+                }
+                
                 if (cancelled) return;
 
                 if (!s?.user) {
@@ -121,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 } else {
                     console.warn('[AuthContext] No profile found – clearing stale session');
                     clearAll();
-                    supabase.auth.signOut().catch(() => { });
+                    supabase.auth.signOut({ scope: 'local' }).catch(() => { });
                 }
             } catch (err) {
                 console.error('[AuthContext] Init error:', err);
@@ -135,11 +148,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // ── Listen for SUBSEQUENT auth changes (non-blocking!) ──
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, newSession) => {
+            async (event, newSession) => {
                 console.debug('[AuthContext] event:', event, 'session:', !!newSession);
 
                 // Skip INITIAL_SESSION – handled by init() above
                 if (event === 'INITIAL_SESSION') return;
+
+                // Handle token refresh errors gracefully
+                if (event === 'TOKEN_REFRESHED' && !newSession) {
+                    console.warn('[AuthContext] Token refresh failed - signing out');
+                    clearAll();
+                    await supabase.auth.signOut({ scope: 'local' }).catch(() => { });
+                    setLoading(false);
+                    return;
+                }
 
                 if (event === 'SIGNED_OUT' || !newSession) {
                     clearAll();
@@ -227,9 +249,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         clearAll();
         try {
-            await supabase.auth.signOut();
+            // Use 'global' scope to sign out from all tabs/devices
+            await supabase.auth.signOut({ scope: 'global' });
+            // Also clear our custom storage key
+            localStorage.removeItem('ouvidoria-auth-token');
         } catch (error) {
             console.error('[AuthContext] Error signing out:', error);
+            // Force clear local storage even if API call fails
+            localStorage.removeItem('ouvidoria-auth-token');
         }
     };
 
