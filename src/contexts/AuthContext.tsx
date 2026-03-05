@@ -8,10 +8,12 @@ interface AuthContextType {
     supabaseUser: SupabaseUser | null;
     profile: User | null;
     loading: boolean;
+    networkError: boolean;
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (data: SignUpData) => Promise<void>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
+    clearNetworkError: () => void;
 }
 
 export interface SignUpData {
@@ -31,10 +33,43 @@ export function useAuth() {
     return ctx;
 }
 
+/** Check if error is a network error */
+function isNetworkError(error: any): boolean {
+    if (!error) return false;
+    const message = (error.message || '').toLowerCase();
+    const code = (error.code || '').toLowerCase();
+    return (
+        message.includes('failed to fetch') ||
+        message.includes('network') ||
+        message.includes('err_network') ||
+        message.includes('net::') ||
+        code === 'network_error' ||
+        code === 'fetch_error'
+    );
+}
+
+/** Retry with exponential backoff */
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    retries = 3,
+    delay = 1000
+): Promise<T> {
+    try {
+        return await fn();
+    } catch (error) {
+        if (retries <= 0 || !isNetworkError(error)) {
+            throw error;
+        }
+        console.warn(`[AuthContext] Network error, retrying in ${delay}ms... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return withRetry(fn, retries - 1, delay * 2);
+    }
+}
+
 /** Fetch profile with a hard timeout to avoid hanging forever */
 async function fetchProfile(userId: string, timeoutMs = 8000): Promise<User | null> {
     return Promise.race([
-        fetchProfileInner(userId),
+        withRetry(() => fetchProfileInner(userId), 3, 1000),
         new Promise<never>((_, reject) => setTimeout(() => {
             console.warn('[AuthContext] fetchProfile timed out');
             reject(new Error('Timeout ao buscar perfil'));
@@ -84,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
     const [profile, setProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [networkError, setNetworkError] = useState(false);
 
     const profileRef = useRef<User | null>(null);
 
@@ -95,7 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setSupabaseUser(null);
         setProfile(null);
+        setNetworkError(false);
     };
+
+    const clearNetworkError = () => setNetworkError(false);
 
     // ── Bootstrap: getSession → fetch profile → done ──
     useEffect(() => {
@@ -136,8 +175,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     clearAll();
                     supabase.auth.signOut({ scope: 'local' }).catch(() => { });
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error('[AuthContext] Init error:', err);
+                // Don't clear session on network errors - user might be offline
+                if (isNetworkError(err)) {
+                    console.warn('[AuthContext] Network error during init - keeping existing session if any');
+                    setNetworkError(true);
+                    // Keep existing session, just mark as offline
+                    setLoading(false);
+                    return;
+                }
                 if (!cancelled) clearAll();
             } finally {
                 if (!cancelled) setLoading(false);
@@ -191,7 +238,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         setLoading(false);
                     }).catch((err) => {
                         console.error('[AuthContext] AuthStateChange fetchProfile failed:', err);
-                        clearAll();
+                        // Don't clear session on network errors - might be temporary
+                        if (isNetworkError(err)) {
+                            console.warn('[AuthContext] Network error during profile fetch - keeping session');
+                            setNetworkError(true);
+                            // Still update session/token even if profile fetch failed
+                            setSession(newSession);
+                            setSupabaseUser(newSession.user);
+                        } else {
+                            clearAll();
+                        }
                         setLoading(false);
                     });
                 } else {
@@ -268,7 +324,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ session, supabaseUser, profile, loading, signIn, signUp, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{ session, supabaseUser, profile, loading, networkError, signIn, signUp, signOut, refreshProfile, clearNetworkError }}>
             {children}
         </AuthContext.Provider>
     );

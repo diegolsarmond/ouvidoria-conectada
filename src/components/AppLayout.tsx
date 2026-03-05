@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { NetworkErrorBanner } from './NetworkErrorBanner';
 import { ROLE_LABELS } from '@/types/ouvidoria';
 
 const navItems = [
@@ -52,7 +53,9 @@ const AppLayout = () => {
     .toUpperCase();
 
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
+    <>
+      <NetworkErrorBanner />
+      <div className="h-screen flex bg-background overflow-hidden pt-0">
       {/* Sidebar */}
       <aside
         className={cn(
@@ -139,6 +142,7 @@ const AppLayout = () => {
         </main>
       </div>
     </div>
+    </>
   );
 };
 
