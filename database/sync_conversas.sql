@@ -44,11 +44,16 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_organ_id UUID;
 BEGIN
-    -- Só sincroniza se o status deixar de ser PRE_CADASTRO
-    IF (OLD.status = 'PRE_CADASTRO' AND NEW.status != 'PRE_CADASTRO') THEN
+    -- Só sincroniza se o status mudar de PRE_CADASTRO para CONCLUIDO (ou outro status de finalização)
+    -- Adicionamos uma trava para garantir que a demanda não seja criada duas vezes
+    IF (OLD.status = 'PRE_CADASTRO' AND NEW.status = 'CONCLUIDO') THEN
         
+        -- Verifica se já não existe uma demanda com este protocolo para evitar duplicidade
+        IF EXISTS (SELECT 1 FROM demands WHERE protocol = NEW.protocolo) THEN
+            RETURN NEW;
+        END IF;
+
         -- Busca um órgão padrão ou tenta mapear pela "area"
-        -- Se não encontrar, usaremos o primeiro ativo para evitar erro de FK
         SELECT id INTO v_organ_id FROM organs WHERE acronym = NEW.area LIMIT 1;
         IF v_organ_id IS NULL THEN
             SELECT id INTO v_organ_id FROM organs WHERE status = 'ativo' LIMIT 1;
@@ -81,7 +86,7 @@ BEGIN
             NEW.cpf,
             NEW.telefone,
             NEW.email,
-            NOW() + interval '20 days' -- Prazo padrão
+            NOW() + interval '20 days'
         );
     END IF;
     RETURN NEW;
