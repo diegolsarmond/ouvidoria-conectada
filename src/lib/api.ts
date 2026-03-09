@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { supabaseAdmin } from './supabase-admin';
-import type { Organ, User, Demand, DemandHistory, AssistantPrompt } from '@/types/ouvidoria';
+import type { Organ, User, Demand, DemandHistory, AssistantPrompts } from '@/types/ouvidoria';
 
 // ─── Mappers (snake_case → camelCase) ─────────────────────────────────────────
 
@@ -75,12 +75,13 @@ function mapHistory(row: any): DemandHistory {
     };
 }
 
-function mapAssistantPrompt(row: any): AssistantPrompt {
+function mapAssistantPrompts(row: any): AssistantPrompts {
     return {
         id: row.id,
-        slug: row.slug,
-        name: row.name,
-        content: row.content,
+        orquestrador: row.orquestrador ?? '',
+        cadastro: row.cadastro ?? '',
+        consulta: row.consulta ?? '',
+        atendimento: row.atendimento ?? '',
         updatedAt: row.updated_at,
     };
 }
@@ -157,14 +158,14 @@ export async function getDemandHistory(demandId: string): Promise<DemandHistory[
     return (data ?? []).map(mapHistory);
 }
 
-export async function getAssistantPrompts(): Promise<AssistantPrompt[]> {
+export async function getAssistantPrompts(): Promise<AssistantPrompts | null> {
     const { data, error } = await supabase
         .from('assistant_prompts')
         .select('*')
-        .order('name');
+        .maybeSingle();
 
     if (error) throw error;
-    return (data ?? []).map(mapAssistantPrompt);
+    return data ? mapAssistantPrompts(data) : null;
 }
 
 // ─── Create Functions ─────────────────────────────────────────────────────────
@@ -487,15 +488,15 @@ export async function addDemandHistory(input: {
     return mapHistory(data);
 }
 
-export async function updateAssistantPrompt(id: string, content: string): Promise<AssistantPrompt> {
+export async function updateAssistantPrompts(id: string, updates: Partial<AssistantPrompts>): Promise<AssistantPrompts> {
     const { data, error } = await supabase
         .from('assistant_prompts')
-        .update({ content })
+        .update(updates)
         .eq('id', id)
         .select('*')
         .single();
 
     if (error) throw error;
-    return mapAssistantPrompt(data);
+    return mapAssistantPrompts(data);
 }
 

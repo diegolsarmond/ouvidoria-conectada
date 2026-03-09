@@ -101,10 +101,11 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   gestor_orgao: 'Gestor de Órgão',
 };
 
-export interface AssistantPrompt {
+export interface AssistantPrompts {
   id: string;
-  slug: 'orquestrador' | 'cadastro' | 'consulta' | 'atendimento';
-  name: string;
-  content: string;
+  orquestrador: string;
+  cadastro: string;
+  consulta: string;
+  atendimento: string;
   updatedAt: string;
 }

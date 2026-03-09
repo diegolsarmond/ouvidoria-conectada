@@ -5,33 +5,31 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Save, Sparkles } from 'lucide-react';
-import { getAssistantPrompts, updateAssistantPrompt } from '@/lib/api';
+import { getAssistantPrompts, updateAssistantPrompts } from '@/lib/api';
 import { toast } from 'sonner';
-import type { AssistantPrompt } from '@/types/ouvidoria';
+import type { AssistantPrompts } from '@/types/ouvidoria';
 
-const AssistantPrompts = () => {
+const AssistantPromptsPage = () => {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<string>('orquestrador');
-    const [promptsContent, setPromptsContent] = useState<Record<string, string>>({});
+    const [promptsContent, setPromptsContent] = useState<Partial<AssistantPrompts>>({});
 
-    const { data: prompts = [], isLoading } = useQuery({
+    const { data: prompts, isLoading } = useQuery({
         queryKey: ['assistant-prompts'],
         queryFn: getAssistantPrompts,
     });
 
     useEffect(() => {
-        if (prompts.length > 0) {
-            const contentMap: Record<string, string> = {};
-            prompts.forEach((p) => {
-                contentMap[p.slug] = p.content;
-            });
-            setPromptsContent(contentMap);
+        if (prompts) {
+            setPromptsContent(prompts);
         }
     }, [prompts]);
 
     const mutation = useMutation({
-        mutationFn: ({ id, content }: { id: string; content: string }) =>
-            updateAssistantPrompt(id, content),
+        mutationFn: (updates: Partial<AssistantPrompts>) => {
+            if (!prompts?.id) throw new Error('ID do registro não encontrado');
+            return updateAssistantPrompts(prompts.id, updates);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['assistant-prompts'] });
             toast.success('Prompt atualizado com sucesso!');
@@ -42,17 +40,15 @@ const AssistantPrompts = () => {
         },
     });
 
-    const handleSave = (slug: string) => {
-        const prompt = prompts.find((p) => p.slug === slug);
-        if (!prompt) return;
+    const handleSave = (slug: keyof AssistantPrompts) => {
+        if (!prompts) return;
 
         mutation.mutate({
-            id: prompt.id,
-            content: promptsContent[slug] || '',
-        });
+            [slug]: promptsContent[slug],
+        } as Partial<AssistantPrompts>);
     };
 
-    const handleContentChange = (slug: string, content: string) => {
+    const handleContentChange = (slug: keyof AssistantPrompts, content: string) => {
         setPromptsContent((prev) => ({
             ...prev,
             [slug]: content,
@@ -68,10 +64,10 @@ const AssistantPrompts = () => {
     }
 
     const promptTypes = [
-        { slug: 'orquestrador', label: 'Orquestrador', description: 'Prompt principal que decide qual assistente deve ser acionado.' },
-        { slug: 'cadastro', label: 'Cadastro de Manifestação', description: 'Diretrizes para o assistente que auxilia o cidadão a registrar uma nova manifestação.' },
-        { slug: 'consulta', label: 'Consulta de Manifestação', description: 'Diretrizes para o assistente que ajuda o cidadão a consultar o status de manifestações existentes.' },
-        { slug: 'atendimento', label: 'Atendimento Humano', description: 'Instruções para quando a conversa deve ser transferida para um atendente humano.' },
+        { slug: 'orquestrador' as keyof AssistantPrompts, label: 'Orquestrador', description: 'Prompt principal que decide qual assistente deve ser acionado.' },
+        { slug: 'cadastro' as keyof AssistantPrompts, label: 'Cadastro de Manifestação', description: 'Diretrizes para o assistente que auxilia o cidadão a registrar uma nova manifestação.' },
+        { slug: 'consulta' as keyof AssistantPrompts, label: 'Consulta de Manifestação', description: 'Diretrizes para o assistente que ajuda o cidadão a consultar o status de manifestações existentes.' },
+        { slug: 'atendimento' as keyof AssistantPrompts, label: 'Atendimento Humano', description: 'Instruções para quando a conversa deve ser transferida para um atendente humano.' },
     ];
 
     return (
@@ -96,9 +92,9 @@ const AssistantPrompts = () => {
                 </TabsList>
 
                 {promptTypes.map((type) => {
-                    const prompt = prompts.find((p) => p.slug === type.slug);
-                    const currentContent = promptsContent[type.slug] || '';
-                    const hasChanges = prompt?.content !== currentContent;
+                    const originalContent = (prompts?.[type.slug] as string) || '';
+                    const currentContent = (promptsContent[type.slug] as string) || '';
+                    const hasChanges = originalContent !== currentContent;
 
                     return (
                         <TabsContent key={type.slug} value={type.slug} className="mt-6">
@@ -123,7 +119,7 @@ const AssistantPrompts = () => {
                                             onClick={() => handleSave(type.slug)}
                                             disabled={!hasChanges || mutation.isPending}
                                         >
-                                            {mutation.isPending && mutation.variables?.id === prompt?.id ? (
+                                            {mutation.isPending ? (
                                                 <Loader2 className="w-4 h-4 animate-spin" />
                                             ) : (
                                                 <Save className="w-4 h-4" />
@@ -141,4 +137,4 @@ const AssistantPrompts = () => {
     );
 };
 
-export default AssistantPrompts;
+export default AssistantPromptsPage;
