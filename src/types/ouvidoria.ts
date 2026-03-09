@@ -100,3 +100,11 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   atendente: 'Atendente',
   gestor_orgao: 'Gestor de Órgão',
 };
+
+export interface AssistantPrompt {
+  id: string;
+  slug: 'orquestrador' | 'cadastro' | 'consulta' | 'atendimento';
+  name: string;
+  content: string;
+  updatedAt: string;
+}

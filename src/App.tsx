@@ -14,6 +14,7 @@ import DemandaDetalhe from "./pages/DemandaDetalhe";
 import Orgaos from "./pages/Orgaos";
 import Usuarios from "./pages/Usuarios";
 import Vinculos from "./pages/Vinculos";
+import AssistantPrompts from "./pages/AssistantPrompts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/orgaos" element={<Orgaos />} />
                 <Route path="/usuarios" element={<Usuarios />} />
                 <Route path="/vinculos" element={<Vinculos />} />
+                <Route path="/assistant-prompts" element={<AssistantPrompts />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

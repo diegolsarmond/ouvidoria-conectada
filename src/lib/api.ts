@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { supabaseAdmin } from './supabase-admin';
-import type { Organ, User, Demand, DemandHistory } from '@/types/ouvidoria';
+import type { Organ, User, Demand, DemandHistory, AssistantPrompt } from '@/types/ouvidoria';
 
 // ─── Mappers (snake_case → camelCase) ─────────────────────────────────────────
 
@@ -75,6 +75,16 @@ function mapHistory(row: any): DemandHistory {
     };
 }
 
+function mapAssistantPrompt(row: any): AssistantPrompt {
+    return {
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        content: row.content,
+        updatedAt: row.updated_at,
+    };
+}
+
 // ─── Fetch Functions ──────────────────────────────────────────────────────────
 
 export async function getOrgans(): Promise<Organ[]> {
@@ -145,6 +155,16 @@ export async function getDemandHistory(demandId: string): Promise<DemandHistory[
 
     if (error) throw error;
     return (data ?? []).map(mapHistory);
+}
+
+export async function getAssistantPrompts(): Promise<AssistantPrompt[]> {
+    const { data, error } = await supabase
+        .from('assistant_prompts')
+        .select('*')
+        .order('name');
+
+    if (error) throw error;
+    return (data ?? []).map(mapAssistantPrompt);
 }
 
 // ─── Create Functions ─────────────────────────────────────────────────────────
@@ -465,5 +485,17 @@ export async function addDemandHistory(input: {
 
     if (error) throw error;
     return mapHistory(data);
+}
+
+export async function updateAssistantPrompt(id: string, content: string): Promise<AssistantPrompt> {
+    const { data, error } = await supabase
+        .from('assistant_prompts')
+        .update({ content })
+        .eq('id', id)
+        .select('*')
+        .single();
+
+    if (error) throw error;
+    return mapAssistantPrompt(data);
 }
 
