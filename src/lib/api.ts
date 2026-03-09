@@ -275,19 +275,10 @@ export async function createDemand(input: {
     citizenEmail?: string;
     deadline: string;
 }): Promise<Demand> {
-    // Generate protocol: year + sequential
-    const year = new Date().getFullYear();
-    const { count } = await supabase
-        .from('demands')
-        .select('*', { count: 'exact', head: true });
-
-    const seq = String((count ?? 0) + 1).padStart(6, '0');
-    const protocol = `${year}${seq}`;
-
     const { data, error } = await supabase
         .from('demands')
         .insert({
-            protocol,
+            // O protocolo agora é gerado automaticamente pelo banco via trigger
             type: input.type,
             status: 'registrada',
             priority: input.priority,
