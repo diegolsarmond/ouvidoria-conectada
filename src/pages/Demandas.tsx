@@ -239,8 +239,13 @@ const Demandas = () => {
                       <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-mono font-medium text-foreground">
                           <div className="flex items-center gap-2">
-                            {d.protocol}
-                            {d.attachments && (
+                            <span 
+                              className="cursor-pointer hover:underline hover:text-primary transition-colors"
+                              onClick={() => navigate(`/demandas/${d.id}`)}
+                            >
+                              {d.protocol}
+                            </span>
+                            {Number(d.attachments) > 0 && (
                               <Paperclip className="w-3 h-3 text-muted-foreground" />
                             )}
                           </div>

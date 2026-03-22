@@ -49,6 +49,35 @@ export interface Demand {
   deadline: string;
   daysRemaining: number;
   attachments?: number;
+  conversaAtiva?: ConversaAtiva;
+}
+
+export interface ConversaAtiva {
+  id: number;
+  protocolo: string;
+  remotejid?: string;
+  anonimo?: boolean;
+  nome?: string;
+  cpf?: string;
+  telefone?: string;
+  email?: string;
+  tipoManifestacao?: string;
+  area?: string;
+  assunto?: string;
+  demanda?: string;
+  status: string;
+  endereco?: string;
+  bairro?: string;
+  cidade?: string;
+  pontoReferencia?: string;
+  dataOcorrencia?: string;
+  horaOcorrencia?: string;
+  recorrente?: boolean;
+  descricaoDetalhada?: string;
+  canalOrigem?: string;
+  confirmadoUsuario?: boolean;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface DemandHistory {

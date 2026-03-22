@@ -144,7 +144,52 @@ export async function getDemandById(id: string): Promise<Demand | null> {
         .maybeSingle();
 
     if (error) throw error;
-    return data ? mapDemand(data) : null;
+    if (!data) return null;
+
+    let conversaAtiva = undefined;
+    if (data.protocol) {
+        const { data: convData } = await supabase
+            .from('conversas_ativas')
+            .select('*')
+            .eq('protocolo', data.protocol)
+            .maybeSingle();
+        
+        if (convData) {
+            conversaAtiva = {
+                id: convData.id,
+                protocolo: convData.protocolo,
+                remotejid: convData.remotejid,
+                anonimo: convData.anonimo,
+                nome: convData.nome,
+                cpf: convData.cpf,
+                telefone: convData.telefone,
+                email: convData.email,
+                tipoManifestacao: convData.tipo_manifestacao,
+                area: convData.area,
+                assunto: convData.assunto,
+                demanda: convData.demanda,
+                status: convData.status,
+                endereco: convData.endereco,
+                bairro: convData.bairro,
+                cidade: convData.cidade,
+                pontoReferencia: convData.ponto_referencia,
+                dataOcorrencia: convData.data_ocorrencia,
+                horaOcorrencia: convData.hora_ocorrencia,
+                recorrente: convData.recorrente,
+                descricaoDetalhada: convData.descricao_detalhada,
+                canalOrigem: convData.canal_origem,
+                confirmadoUsuario: convData.confirmado_usuario,
+                createdAt: convData.created_at,
+                updatedAt: convData.updated_at,
+            };
+        }
+    }
+
+    const demand = mapDemand(data);
+    if (conversaAtiva) {
+        demand.conversaAtiva = conversaAtiva;
+    }
+    return demand;
 }
 
 export async function getDemandHistory(demandId: string): Promise<DemandHistory[]> {

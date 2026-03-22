@@ -492,11 +492,28 @@ const DemandaDetalhe = () => {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="dados" className="space-y-4">
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="dados">Dados</TabsTrigger>
-          <TabsTrigger value="andamentos">Andamentos</TabsTrigger>
-          {!isClosed && <TabsTrigger value="resposta">Resposta</TabsTrigger>}
+      <Tabs defaultValue="dados" className="space-y-6">
+        <TabsList className="bg-card border shadow-sm w-full h-auto p-1.5 flex gap-1 rounded-xl">
+          <TabsTrigger 
+            value="dados" 
+            className="flex-1 text-sm md:text-base font-semibold py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all"
+          >
+            Dados
+          </TabsTrigger>
+          <TabsTrigger 
+            value="andamentos" 
+            className="flex-1 text-sm md:text-base font-semibold py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all"
+          >
+            Andamentos
+          </TabsTrigger>
+          {!isClosed && (
+            <TabsTrigger 
+              value="resposta" 
+              className="flex-1 text-sm md:text-base font-semibold py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all"
+            >
+              Resposta
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="dados" className="space-y-4">
@@ -562,6 +579,75 @@ const DemandaDetalhe = () => {
               <CardContent className="p-5 text-center text-muted-foreground text-sm">
                 <User className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 Manifestação anônima — dados do cidadão ocultos.
+              </CardContent>
+            </Card>
+          )}
+
+          {demand.conversaAtiva && (
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  Dados da Conversa de Origem (Bot)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  {demand.conversaAtiva.telefone && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">Telefone</p>
+                      <p className="font-medium text-foreground">{demand.conversaAtiva.telefone}</p>
+                    </div>
+                  )}
+                  {demand.conversaAtiva.cpf && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">CPF Informado</p>
+                      <p className="font-medium text-foreground">{demand.conversaAtiva.cpf}</p>
+                    </div>
+                  )}
+                  {demand.conversaAtiva.nome && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">Nome Informado</p>
+                      <p className="font-medium text-foreground">{demand.conversaAtiva.nome}</p>
+                    </div>
+                  )}
+                  {demand.conversaAtiva.endereco && (
+                    <div className="col-span-1 md:col-span-2">
+                      <p className="text-muted-foreground text-xs">Endereço</p>
+                      <p className="font-medium text-foreground">
+                        {demand.conversaAtiva.endereco}
+                        {demand.conversaAtiva.bairro && `, Bairro: ${demand.conversaAtiva.bairro}`}
+                        {demand.conversaAtiva.cidade && ` - ${demand.conversaAtiva.cidade}`}
+                      </p>
+                    </div>
+                  )}
+                  {demand.conversaAtiva.pontoReferencia && (
+                    <div className="col-span-1 md:col-span-2">
+                      <p className="text-muted-foreground text-xs">Ponto de Referência</p>
+                      <p className="font-medium text-foreground">{demand.conversaAtiva.pontoReferencia}</p>
+                    </div>
+                  )}
+                  {demand.conversaAtiva.dataOcorrencia && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">Data da Ocorrência</p>
+                      <p className="font-medium text-foreground">{formatDate(demand.conversaAtiva.dataOcorrencia)}</p>
+                    </div>
+                  )}
+                  {demand.conversaAtiva.horaOcorrencia && (
+                    <div>
+                      <p className="text-muted-foreground text-xs">Hora da Ocorrência</p>
+                      <p className="font-medium text-foreground">{demand.conversaAtiva.horaOcorrencia}</p>
+                    </div>
+                  )}
+                  {demand.conversaAtiva.descricaoDetalhada && (
+                    <div className="col-span-1 md:col-span-2 mt-2">
+                      <p className="text-muted-foreground text-xs mb-1">Descrição Detalhada (Bot)</p>
+                      <p className="text-sm text-foreground bg-muted/30 p-3 rounded-md whitespace-pre-wrap">
+                        {demand.conversaAtiva.descricaoDetalhada}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -738,6 +824,8 @@ const DemandaDetalhe = () => {
             </Card>
           </TabsContent>
         )}
+
+
       </Tabs>
 
       {/* ─── Dialog: Encaminhar ─────────────────────────────────────────── */}
