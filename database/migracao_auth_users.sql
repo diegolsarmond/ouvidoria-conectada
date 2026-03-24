@@ -19,11 +19,18 @@ CREATE POLICY "Usuários autenticados podem ver todos os perfis"
   USING (true);
 
 -- 4. Política: Permitir INSERT para service_role (cadastro via backend)
---    e para o próprio usuário (self-registration)
-CREATE POLICY "Usuário pode inserir seu próprio perfil"
+--    e para o próprio usuário (self-registration), ou para admins
+DROP POLICY IF EXISTS "Usuário pode inserir seu próprio perfil" ON public.users;
+DROP POLICY IF EXISTS "Usuário pode inserir seu próprio perfil ou admin pode inserir qualquer" ON public.users;
+CREATE POLICY "Usuário pode inserir seu próprio perfil ou admin pode inserir qualquer"
   ON public.users FOR INSERT
   TO authenticated
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK (
+    auth.uid() = id
+    OR EXISTS (
+      SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.role = 'administrador'
+    )
+  );
 
 -- 5. Política: Permitir UPDATE para o próprio usuário ou para admins
 CREATE POLICY "Usuário pode atualizar seu perfil ou admin pode atualizar qualquer"

@@ -268,7 +268,7 @@ export async function createUser(input: {
     const newUserId = authData.user.id;
 
     // 2. Criar o perfil do usuário em public.users
-    const { error: profileError } = await supabase.from('users').insert({
+    const { error: profileError } = await supabaseAdmin.from('users').insert({
         id: newUserId,
         name: input.name,
         cpf: input.cpf,
@@ -287,7 +287,7 @@ export async function createUser(input: {
 
     // 3. Insert user_organs relationships
     if (input.organIds.length > 0) {
-        const { error: uoError } = await supabase
+        const { error: uoError } = await supabaseAdmin
             .from('user_organs')
             .insert(input.organIds.map((organId) => ({
                 user_id: newUserId,
