@@ -174,236 +174,227 @@ const Login = () => {
 
   return (
     <>
-    <NetworkErrorBanner />
-    <div className="min-h-screen flex">
-      {/* Left panel - branding */}
-      <div className="hidden lg:flex lg:w-1/2 login-gradient items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-64 h-64 border border-primary-foreground/20 rounded-full" />
-          <div className="absolute bottom-32 right-16 w-96 h-96 border border-primary-foreground/20 rounded-full" />
-          <div className="absolute top-1/2 left-1/3 w-48 h-48 border border-primary-foreground/20 rounded-full" />
-        </div>
-        <div className="relative z-10 text-primary-foreground max-w-lg">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-14 h-14 rounded-xl bg-primary-foreground/15 backdrop-blur-sm flex items-center justify-center">
-              <Shield className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Ouvidoria</h1>
-              <p className="text-sm opacity-80 font-medium">Municipal</p>
-            </div>
+      <NetworkErrorBanner />
+      <div className="min-h-screen flex">
+        {/* Left panel - branding */}
+        <div className="hidden lg:flex lg:w-1/2 login-gradient items-center justify-center p-12 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-20 left-20 w-64 h-64 border border-primary-foreground/20 rounded-full" />
+            <div className="absolute bottom-32 right-16 w-96 h-96 border border-primary-foreground/20 rounded-full" />
+            <div className="absolute top-1/2 left-1/3 w-48 h-48 border border-primary-foreground/20 rounded-full" />
           </div>
-          <h2 className="text-2xl font-semibold mb-4 leading-tight">
-            Sistema de Gestão de Demandas da Ouvidoria
-          </h2>
-          <p className="text-primary-foreground/70 leading-relaxed">
-            Plataforma integrada para registro, acompanhamento e resolução de manifestações dos cidadãos.
-            Transparência e eficiência no atendimento público.
-          </p>
-          <div className="mt-12 grid grid-cols-3 gap-6">
-            <div>
-              <p className="text-3xl font-bold">1.2k</p>
-              <p className="text-sm opacity-70">Demandas/mês</p>
+          <div className="relative z-10 text-primary-foreground max-w-lg">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-14 h-14 rounded-xl bg-primary-foreground/15 backdrop-blur-sm flex items-center justify-center">
+                <Shield className="w-8 h-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Ouvidoria</h1>
+                <p className="text-sm opacity-80 font-medium"></p>
+              </div>
             </div>
-            <div>
-              <p className="text-3xl font-bold">92%</p>
-              <p className="text-sm opacity-70">Resolvidas</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold">4.8</p>
-              <p className="text-sm opacity-70">Satisfação</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right panel - form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-background overflow-y-auto">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <Shield className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Ouvidoria</h1>
-              <p className="text-xs text-muted-foreground">Municipal</p>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-foreground">
-              {mode === 'login' ? 'Acessar sistema' : mode === 'register' ? 'Cadastro de usuário' : 'Recuperar senha'}
+            <h2 className="text-2xl font-semibold mb-4 leading-tight">
+              Sistema de Gestão de Demandas da Ouvidoria
             </h2>
-            <p className="text-muted-foreground mt-1">
-              {mode === 'login'
-                ? 'Entre com suas credenciais para continuar'
-                : mode === 'register'
-                ? 'Preencha os dados para criar sua conta'
-                : 'Informe seu email para receber o link de redefinição'}
+            <p className="text-primary-foreground/70 leading-relaxed">
+              Plataforma integrada para registro, acompanhamento e resolução de manifestações dos cidadãos.
+              Transparência e eficiência no atendimento público.
             </p>
+            <div className="mt-12 grid grid-cols-3 gap-6">
+
+
+
+            </div>
           </div>
+        </div>
 
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-6">
-              {/* Alerts */}
-              {error && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-              {success && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-status-completed/10 text-status-completed text-sm mb-4">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  {success}
-                </div>
-              )}
+        {/* Right panel - form */}
+        <div className="flex-1 flex items-center justify-center p-6 bg-background overflow-y-auto">
+          <div className="w-full max-w-md">
+            {/* Mobile logo */}
+            <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
+              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
+                <Shield className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Ouvidoria</h1>
+                <p className="text-xs text-muted-foreground">Municipal</p>
+              </div>
+            </div>
 
-              {mode === 'login' ? (
-                <form onSubmit={handleLogin} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="seu.email@prefeitura.gov.br"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      autoComplete="username"
-                      className="h-11"
-                    />
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-foreground">
+                {mode === 'login' ? 'Acessar sistema' : mode === 'register' ? 'Cadastro de usuário' : 'Recuperar senha'}
+              </h2>
+              <p className="text-muted-foreground mt-1">
+                {mode === 'login'
+                  ? 'Entre com suas credenciais para continuar'
+                  : mode === 'register'
+                    ? 'Preencha os dados para criar sua conta'
+                    : 'Informe seu email para receber o link de redefinição'}
+              </p>
+            </div>
+
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-6">
+                {/* Alerts */}
+                {error && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    {error}
                   </div>
+                )}
+                {success && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-status-completed/10 text-status-completed text-sm mb-4">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    {success}
+                  </div>
+                )}
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Senha</Label>
-                      <button type="button" onClick={() => switchMode('recover')} className="text-xs text-accent hover:underline">
-                        Esqueci minha senha
-                      </button>
-                    </div>
-                    <div className="relative">
+                {mode === 'login' ? (
+                  <form onSubmit={handleLogin} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
                       <Input
-                        id="password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                        className="h-11 pr-10"
+                        id="email"
+                        type="email"
+                        placeholder="seu.email@prefeitura.gov.br"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="username"
+                        className="h-11"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
                     </div>
-                  </div>
 
-                  <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
-                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...</> : 'Entrar'}
-                  </Button>
-                </form>
-              ) : mode === 'register' ? (
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-name">Nome completo *</Label>
-                    <Input id="reg-name" placeholder="Nome completo do servidor" value={regName} onChange={(e) => setRegName(e.target.value)} autoComplete="name" className="h-11" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="reg-cpf">CPF *</Label>
-                      <Input id="reg-cpf" placeholder="000.000.000-00" value={regCpf} onChange={(e) => setRegCpf(cpfMask(e.target.value))} className="h-11" maxLength={14} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reg-registration">Matrícula *</Label>
-                      <Input id="reg-registration" placeholder="MAT-000" value={regRegistration} onChange={(e) => setRegRegistration(e.target.value)} className="h-11" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-email">Email institucional *</Label>
-                    <Input id="reg-email" type="email" placeholder="seu.email@prefeitura.gov.br" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} autoComplete="email" className="h-11" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Perfil de acesso *</Label>
-                    <Select value={regRole} onValueChange={(v) => setRegRole(v as UserRole)}>
-                      <SelectTrigger className="h-11"><SelectValue placeholder="Selecione o perfil" /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(ROLE_LABELS).map(([k, v]) => (
-                          <SelectItem key={k} value={k}>{v}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="reg-password">Senha *</Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Senha</Label>
+                        <button type="button" onClick={() => switchMode('recover')} className="text-xs text-accent hover:underline">
+                          Esqueci minha senha
+                        </button>
+                      </div>
                       <div className="relative">
-                        <Input id="reg-password" type={showPassword ? 'text' : 'password'} placeholder="Mín. 6 caracteres" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} autoComplete="new-password" className="h-11 pr-10" />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          autoComplete="current-password"
+                          className="h-11 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
+
+                    <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
+                      {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...</> : 'Entrar'}
+                    </Button>
+                  </form>
+                ) : mode === 'register' ? (
+                  <form onSubmit={handleRegister} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="reg-password-confirm">Confirmar *</Label>
-                      <Input id="reg-password-confirm" type={showPassword ? 'text' : 'password'} placeholder="Repita a senha" value={regPasswordConfirm} onChange={(e) => setRegPasswordConfirm(e.target.value)} autoComplete="new-password" className="h-11" />
+                      <Label htmlFor="reg-name">Nome completo *</Label>
+                      <Input id="reg-name" placeholder="Nome completo do servidor" value={regName} onChange={(e) => setRegName(e.target.value)} autoComplete="name" className="h-11" />
                     </div>
-                  </div>
-                  <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
-                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Cadastrando...</> : 'Criar conta'}
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleRecover} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="recover-email">Email cadastrado</Label>
-                    <Input
-                      id="recover-email"
-                      type="email"
-                      placeholder="seu.email@prefeitura.gov.br"
-                      value={recoverEmail}
-                      onChange={(e) => setRecoverEmail(e.target.value)}
-                      autoComplete="email"
-                      className="h-11"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
-                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</> : 'Enviar link de recuperação'}
-                  </Button>
-                </form>
-              )}
-
-              {/* Toggle mode */}
-              <div className="mt-5 text-center text-sm text-muted-foreground space-y-1">
-                {mode !== 'login' && (
-                  <div>
-                    <button type="button" onClick={() => switchMode('login')} className="text-accent font-medium hover:underline">
-                      Voltar ao login
-                    </button>
-                  </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-cpf">CPF *</Label>
+                        <Input id="reg-cpf" placeholder="000.000.000-00" value={regCpf} onChange={(e) => setRegCpf(cpfMask(e.target.value))} className="h-11" maxLength={14} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-registration">Matrícula *</Label>
+                        <Input id="reg-registration" placeholder="MAT-000" value={regRegistration} onChange={(e) => setRegRegistration(e.target.value)} className="h-11" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reg-email">Email institucional *</Label>
+                      <Input id="reg-email" type="email" placeholder="seu.email@prefeitura.gov.br" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} autoComplete="email" className="h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Perfil de acesso *</Label>
+                      <Select value={regRole} onValueChange={(v) => setRegRole(v as UserRole)}>
+                        <SelectTrigger className="h-11"><SelectValue placeholder="Selecione o perfil" /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(ROLE_LABELS).map(([k, v]) => (
+                            <SelectItem key={k} value={k}>{v}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-password">Senha *</Label>
+                        <div className="relative">
+                          <Input id="reg-password" type={showPassword ? 'text' : 'password'} placeholder="Mín. 6 caracteres" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} autoComplete="new-password" className="h-11 pr-10" />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-password-confirm">Confirmar *</Label>
+                        <Input id="reg-password-confirm" type={showPassword ? 'text' : 'password'} placeholder="Repita a senha" value={regPasswordConfirm} onChange={(e) => setRegPasswordConfirm(e.target.value)} autoComplete="new-password" className="h-11" />
+                      </div>
+                    </div>
+                    <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
+                      {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Cadastrando...</> : 'Criar conta'}
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleRecover} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="recover-email">Email cadastrado</Label>
+                      <Input
+                        id="recover-email"
+                        type="email"
+                        placeholder="seu.email@prefeitura.gov.br"
+                        value={recoverEmail}
+                        onChange={(e) => setRecoverEmail(e.target.value)}
+                        autoComplete="email"
+                        className="h-11"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
+                      {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</> : 'Enviar link de recuperação'}
+                    </Button>
+                  </form>
                 )}
-                {mode === 'login' && (
-                  <div>
-                    Não tem uma conta?{' '}
-                    <button type="button" onClick={() => switchMode('register')} className="text-accent font-medium hover:underline">
-                      Cadastre-se
-                    </button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
 
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            Sistema restrito a servidores autorizados.<br />
-            Prefeitura Municipal © 2025
-          </p>
+                {/* Toggle mode */}
+                <div className="mt-5 text-center text-sm text-muted-foreground space-y-1">
+                  {mode !== 'login' && (
+                    <div>
+                      <button type="button" onClick={() => switchMode('login')} className="text-accent font-medium hover:underline">
+                        Voltar ao login
+                      </button>
+                    </div>
+                  )}
+                  {mode === 'login' && (
+                    <div>
+                      Não tem uma conta?{' '}
+                      <button type="button" onClick={() => switchMode('register')} className="text-accent font-medium hover:underline">
+                        Cadastre-se
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <p className="text-center text-xs text-muted-foreground mt-6">
+              Sistema restrito a servidores autorizados.<br />
+              Prefeitura Municipal © 2025
+            </p>
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 };
