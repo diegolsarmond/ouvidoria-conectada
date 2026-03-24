@@ -144,7 +144,7 @@ const Dashboard = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Visão geral das demandas da Ouvidoria Municipal</p>
+        <p className="text-muted-foreground text-sm">Visão geral das demandas da Ouvidoria</p>
       </div>
 
       {isLoading ? (

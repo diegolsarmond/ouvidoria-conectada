@@ -376,21 +376,12 @@ const Login = () => {
                       </button>
                     </div>
                   )}
-                  {mode === 'login' && (
-                    <div>
-                      Não tem uma conta?{' '}
-                      <button type="button" onClick={() => switchMode('register')} className="text-accent font-medium hover:underline">
-                        Cadastre-se
-                      </button>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
 
             <p className="text-center text-xs text-muted-foreground mt-6">
-              Sistema restrito a servidores autorizados.<br />
-              Prefeitura Municipal © 2025
+              Sistema restrito a servidores autorizados.
             </p>
           </div>
         </div>
