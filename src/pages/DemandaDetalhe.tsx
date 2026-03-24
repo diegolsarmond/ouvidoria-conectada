@@ -402,6 +402,23 @@ const DemandaDetalhe = () => {
     );
   }
 
+  if (profile?.role === 'atendente') {
+    const isMyOrgan = demand.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(demand.organId));
+    const isAssignedToMe = demand.assignedTo === profile.id;
+
+    if (!isMyOrgan || !isAssignedToMe) {
+      return (
+        <div className="text-center py-20 px-4">
+          <h2 className="text-xl font-bold text-destructive mb-2">Acesso Restrito</h2>
+          <p className="text-muted-foreground mb-6">Você tem permissão apenas para visualizar demandas do seu órgão e que lhe são atribuídas.</p>
+          <Button variant="outline" onClick={() => navigate('/demandas')}>
+            Sair desta página
+          </Button>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Header */}

@@ -43,8 +43,18 @@ const deadlineClass = (days: number) => {
   return 'deadline-ok';
 };
 
+import { useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+
+  useEffect(() => {
+    if (profile?.role === 'atendente') {
+      navigate('/demandas', { replace: true });
+    }
+  }, [profile, navigate]);
 
   const { data: demands = [], isLoading } = useQuery({
     queryKey: ['demands'],

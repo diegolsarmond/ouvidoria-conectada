@@ -82,7 +82,15 @@ const AppLayout = () => {
           {/* Navigation */}
           <nav className="flex-1 p-3 space-y-1">
             {navItems
-              .filter(item => !item.adminOnly || profile?.role === 'administrador')
+              .filter(item => {
+                if (profile?.role === 'atendente' && item.path !== '/demandas') {
+                  return false;
+                }
+                if (item.adminOnly && profile?.role !== 'administrador') {
+                  return false;
+                }
+                return true;
+              })
               .map((item) => {
                 const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
                 return (
