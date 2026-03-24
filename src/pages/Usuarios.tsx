@@ -14,8 +14,10 @@ import { ROLE_LABELS } from '@/types/ouvidoria';
 import type { User } from '@/types/ouvidoria';
 import { getUsers, getOrgans, resetUserPassword } from '@/lib/api';
 import { UsuarioModal } from '@/components/modals/NovoUsuarioModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Usuarios = () => {
+  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,6 +54,21 @@ const Usuarios = () => {
   });
 
   const filtered = users.filter((u) => {
+    if (profile?.role === 'gestor_orgao' || profile?.role === 'ouvidor') {
+      const myOrgans = [...(profile.organs || [])];
+      if (profile.primaryOrganId && !myOrgans.includes(profile.primaryOrganId)) {
+        myOrgans.push(profile.primaryOrganId);
+      }
+      
+      const uOrgans = [...(u.organs || [])];
+      if (u.primaryOrganId && !uOrgans.includes(u.primaryOrganId)) {
+        uOrgans.push(u.primaryOrganId);
+      }
+      
+      const hasIntersection = myOrgans.some(org => uOrgans.includes(org));
+      if (!hasIntersection) return false;
+    }
+
     if (!search) return true;
     const s = search.toLowerCase();
     return u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s) || u.registration.toLowerCase().includes(s);

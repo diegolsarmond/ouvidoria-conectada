@@ -104,6 +104,13 @@ const Demandas = () => {
       }
     }
 
+    if (profile?.role === 'gestor_orgao' || profile?.role === 'ouvidor') {
+      const isMyOrgan = d.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(d.organId));
+      if (!isMyOrgan) {
+        return false;
+      }
+    }
+
     if (statusFilter !== 'all' && d.status !== statusFilter) return false;
     if (typeFilter !== 'all' && d.type !== typeFilter) return false;
     if (priorityFilter !== 'all' && d.priority !== priorityFilter) return false;

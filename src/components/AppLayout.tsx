@@ -86,6 +86,12 @@ const AppLayout = () => {
                 if (profile?.role === 'atendente' && item.path !== '/demandas') {
                   return false;
                 }
+                if (profile?.role === 'gestor_orgao' && (item.path === '/orgaos' || item.path === '/vinculos')) {
+                  return false;
+                }
+                if (profile?.role === 'ouvidor' && (item.path === '/orgaos' || item.path === '/vinculos' || item.path === '/usuarios')) {
+                  return false;
+                }
                 if (item.adminOnly && profile?.role !== 'administrador') {
                   return false;
                 }

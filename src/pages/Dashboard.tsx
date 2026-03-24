@@ -56,9 +56,17 @@ const Dashboard = () => {
     }
   }, [profile, navigate]);
 
-  const { data: demands = [], isLoading } = useQuery({
+  const { data: rawDemands = [], isLoading } = useQuery({
     queryKey: ['demands'],
     queryFn: getDemands,
+  });
+
+  const demands = rawDemands.filter((d) => {
+    if (profile?.role === 'gestor_orgao' || profile?.role === 'ouvidor') {
+      const isMyOrgan = d.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(d.organId));
+      if (!isMyOrgan) return false;
+    }
+    return true;
   });
 
   // Compute live KPIs from real data
