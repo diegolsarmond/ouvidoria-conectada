@@ -5,6 +5,7 @@
 
 -- 1. Adicionar a Foreign Key de public.users.id → auth.users.id
 --    (Caso a tabela já exista e precise apenas adicionar o vínculo)
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_id_fkey;
 ALTER TABLE public.users
   ADD CONSTRAINT users_id_fkey
   FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -13,6 +14,7 @@ ALTER TABLE public.users
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 -- 3. Política: Permitir SELECT para usuários autenticados
+DROP POLICY IF EXISTS "Usuários autenticados podem ver todos os perfis" ON public.users;
 CREATE POLICY "Usuários autenticados podem ver todos os perfis"
   ON public.users FOR SELECT
   TO authenticated
@@ -33,6 +35,7 @@ CREATE POLICY "Usuário pode inserir seu próprio perfil ou admin pode inserir q
   );
 
 -- 5. Política: Permitir UPDATE para o próprio usuário ou para admins
+DROP POLICY IF EXISTS "Usuário pode atualizar seu perfil ou admin pode atualizar qualquer" ON public.users;
 CREATE POLICY "Usuário pode atualizar seu perfil ou admin pode atualizar qualquer"
   ON public.users FOR UPDATE
   TO authenticated
@@ -44,6 +47,7 @@ CREATE POLICY "Usuário pode atualizar seu perfil ou admin pode atualizar qualqu
   );
 
 -- 6. Política: Permitir acesso anônimo para leitura (necessário para signup)
+DROP POLICY IF EXISTS "Anônimo pode inserir perfil durante cadastro" ON public.users;
 CREATE POLICY "Anônimo pode inserir perfil durante cadastro"
   ON public.users FOR INSERT
   TO anon
@@ -52,11 +56,13 @@ CREATE POLICY "Anônimo pode inserir perfil durante cadastro"
 -- 7. Repetir RLS para user_organs
 ALTER TABLE public.user_organs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Autenticados podem ver vínculos" ON public.user_organs;
 CREATE POLICY "Autenticados podem ver vínculos"
   ON public.user_organs FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Autenticados podem gerenciar vínculos" ON public.user_organs;
 CREATE POLICY "Autenticados podem gerenciar vínculos"
   ON public.user_organs FOR ALL
   TO authenticated
@@ -64,6 +70,7 @@ CREATE POLICY "Autenticados podem gerenciar vínculos"
   WITH CHECK (true);
 
 -- Permitir insert anônimo em user_organs também (caso necessário no signup)
+DROP POLICY IF EXISTS "Anônimo pode inserir vínculos" ON public.user_organs;
 CREATE POLICY "Anônimo pode inserir vínculos"
   ON public.user_organs FOR INSERT
   TO anon
