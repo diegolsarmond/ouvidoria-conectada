@@ -1,0 +1,148 @@
+{
+  "name": "Ouvidoria - Consulta Protocolo",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-cp-001",
+      "name": "Inicio",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-600, -200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst dados = input.dados_roteador ? JSON.parse(input.dados_roteador) : {};\nconst detectados = dados.dados_detectados || {};\n\nreturn [{\n  json: {\n    remotejid: input.remotejid,\n    mensagem: input.mensagem,\n    protocolo_detectado: detectados.protocolo || null,\n    cpf_detectado: detectados.cpf || null\n  }\n}];"
+      },
+      "id": "parse-cp-001",
+      "name": "Parsear Entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-360, -200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "if-proto",
+              "leftValue": "={{ $json.protocolo_detectado }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "isNotEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-proto-001",
+      "name": "Tem Protocolo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-120, -200]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "conversas_ativas",
+        "returnAll": false,
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            { "keyName": "protocolo", "condition": "eq", "keyValue": "={{ $('Parsear Entrada').first().json.protocolo_detectado }}" }
+          ]
+        }
+      },
+      "id": "buscar-proto-001",
+      "name": "Buscar por Protocolo",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [120, -400],
+      "credentials": {
+        "supabaseApi": { "id": "<<SUPABASE_CREDENTIAL_ID>>", "name": "Supabase - Ouvidoria" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "if-cpf",
+              "leftValue": "={{ $('Parsear Entrada').first().json.cpf_detectado }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "isNotEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-cpf-001",
+      "name": "Tem CPF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [120, -100]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "conversas_ativas",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            { "keyName": "cpf", "condition": "eq", "keyValue": "={{ $('Parsear Entrada').first().json.cpf_detectado }}" }
+          ]
+        }
+      },
+      "id": "buscar-cpf-001",
+      "name": "Buscar por CPF",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [360, -100],
+      "credentials": {
+        "supabaseApi": { "id": "<<SUPABASE_CREDENTIAL_ID>>", "name": "Supabase - Ouvidoria" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    responder_cidadao: 'Para consultar sua manifestação, informe o número do protocolo.\\nSe não tiver o número, posso buscar pelo seu CPF.'\n  }\n}];"
+      },
+      "id": "pedir-dados-001",
+      "name": "Pedir Protocolo ou CPF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [360, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (!items || items.length === 0 || !items[0].json.protocolo) {\n  return [{\n    json: {\n      responder_cidadao: 'Não encontrei nenhuma manifestação com esse dado. Verifique o número e tente novamente.\\nSe precisar de ajuda, posso transferir para um atendente.'\n    }\n  }];\n}\n\nconst d = items[0].json;\nconst statusMap = {\n  'AGUARDANDO_ANONIMO': 'Em coleta de dados',\n  'AGUARDANDO_NOME': 'Em coleta de dados',\n  'AGUARDANDO_DEMANDA': 'Em coleta de dados',\n  'AGUARDANDO_LOCALIZACAO': 'Em coleta de dados',\n  'AGUARDANDO_DATA': 'Em coleta de dados',\n  'AGUARDANDO_DETALHES': 'Em coleta de dados',\n  'AGUARDANDO_CONFIRMACAO': 'Aguardando confirmação',\n  'AGUARDANDO_DESCRICAO_DETALHADA': 'Em análise',\n  'CONFIRMADO': 'Registrada',\n  'EM_ANDAMENTO': 'Em andamento',\n  'RESPONDIDA': 'Respondida',\n  'ENCERRADA': 'Encerrada'\n};\n\nconst statusLabel = statusMap[d.status] || d.status || 'Em processamento';\nconst tipoMap = { 'reclamacao': 'Reclamação', 'denuncia': 'Denúncia', 'elogio': 'Elogio', 'sugestao': 'Sugestão', 'solicitacao': 'Solicitação' };\nconst tipoLabel = tipoMap[d.tipo_manifestacao] || d.tipo_manifestacao || 'N/A';\nconst areaLabel = d.area ? d.area.charAt(0).toUpperCase() + d.area.slice(1) : 'N/A';\n\nlet msg = `*Protocolo:* ${d.protocolo}\\n`;\nmsg += `*Status:* ${statusLabel}\\n`;\nmsg += `*Tipo:* ${tipoLabel}\\n`;\nmsg += `*Área:* ${areaLabel}\\n`;\nmsg += `*Aberto em:* ${d.created_at ? new Date(d.created_at).toLocaleDateString('pt-BR') : 'N/A'}\\n`;\nmsg += `*Assunto:* ${d.assunto || 'N/A'}`;\n\nif (d.descricao_detalhada) {\n  msg += `\\n\\n*Resposta:* ${d.descricao_detalhada}`;\n}\n\nmsg += '\\n\\nPosso te ajudar com mais alguma coisa?';\n\nreturn [{ json: { responder_cidadao: msg } }];"
+      },
+      "id": "formatar-resultado-001",
+      "name": "Formatar Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, -200]
+    }
+  ],
+  "connections": {
+    "Inicio": { "main": [[{ "node": "Parsear Entrada", "type": "main", "index": 0 }]] },
+    "Parsear Entrada": { "main": [[{ "node": "Tem Protocolo?", "type": "main", "index": 0 }]] },
+    "Tem Protocolo?": {
+      "main": [
+        [{ "node": "Buscar por Protocolo", "type": "main", "index": 0 }],
+        [{ "node": "Tem CPF?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar por Protocolo": { "main": [[{ "node": "Formatar Resultado", "type": "main", "index": 0 }]] },
+    "Tem CPF?": {
+      "main": [
+        [{ "node": "Buscar por CPF", "type": "main", "index": 0 }],
+        [{ "node": "Pedir Protocolo ou CPF", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar por CPF": { "main": [[{ "node": "Formatar Resultado", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ouvidoria" }, { "name": "v2" }, { "name": "sub-workflow" }]
+}

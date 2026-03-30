@@ -1,0 +1,28 @@
+{
+  "name": "Ouvidoria - Encaminhamento Humano",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-eh-001",
+      "name": "Inicio",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-400, -200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst historico = input.historico ? JSON.parse(input.historico) : [];\n\n// Gerar resumo do contexto para o atendente\nconst ultimas = historico.slice(-6);\nconst contexto = ultimas.map(m => `${m.sender === 'user' ? 'Cidadão' : 'Bot'}: ${m.content}`).join('\\n');\n\nreturn [{\n  json: {\n    remotejid: input.remotejid,\n    contexto_resumido: contexto || 'Cidadão solicitou atendimento humano diretamente.',\n    responder_cidadao: 'Entendido! Vou transferir você para um atendente humano.\\n\\nAguarde na fila de atendimento.\\nVocê será atendido em breve.\\n\\nNão feche esta conversa.',\n    notificar_agente: true,\n    prioridade: 'normal'\n  }\n}];"
+      },
+      "id": "preparar-eh-001",
+      "name": "Preparar Encaminhamento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, -200]
+    }
+  ],
+  "connections": {
+    "Inicio": { "main": [[{ "node": "Preparar Encaminhamento", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ouvidoria" }, { "name": "v2" }, { "name": "sub-workflow" }]
+}
