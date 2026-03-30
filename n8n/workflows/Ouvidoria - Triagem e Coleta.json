@@ -2,22 +2,22 @@
   "name": "Ouvidoria - Triagem e Coleta Inteligente",
   "nodes": [
     {
-      "parameters": {},
-      "id": "trigger-tc-001",
+      "parameters": { "inputSource": "passthrough" },
+      "id": "30269089-3b51-4604-ba2c-0b352889eaec",
       "name": "Inicio",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-800, -200]
+      "position": [-800, 400]
     },
     {
       "parameters": {
         "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    remotejid: input.remotejid,\n    mensagem: input.mensagem,\n    historico: input.historico ? JSON.parse(input.historico) : [],\n    dados_roteador: input.dados_roteador ? JSON.parse(input.dados_roteador) : {},\n    resumo_historico: input.resumo_historico || ''\n  }\n}];"
       },
-      "id": "parse-input-tc-001",
+      "id": "4528c3c9-8068-408a-9849-b8b74999b2f8",
       "name": "Parsear Entrada",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-560, -200]
+      "position": [-576, 400]
     },
     {
       "parameters": {
@@ -25,21 +25,22 @@
         "tableId": "assistant_prompts",
         "returnAll": true
       },
-      "id": "fetch-prompts-tc-001",
+      "id": "1cc46c85-4df9-461c-9de3-cf720e19e8f9",
       "name": "Buscar Prompts",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-320, -400],
+      "position": [-224, 0],
       "credentials": {
-        "supabaseApi": { "id": "<<SUPABASE_CREDENTIAL_ID>>", "name": "Supabase - Ouvidoria" }
+        "supabaseApi": { "id": "vp31qZQSpdQd2U2t", "name": "Supabase - Ouvidoria" }
       }
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "<<ID_WORKFLOW_PRECADASTRO>>",
+          "value": "rbc6W59ncj8ADQhr",
           "mode": "list",
+          "cachedResultUrl": "/workflow/rbc6W59ncj8ADQhr",
           "cachedResultName": "Ouvidoria - PréCadastro"
         },
         "workflowInputs": {
@@ -50,35 +51,35 @@
         },
         "options": {}
       },
-      "id": "precad-tc-001",
+      "id": "d3e34461-c023-431a-bb4e-227fd001f35d",
       "name": "Buscar Dados Existentes",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [-320, -200]
+      "position": [-224, 800]
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "=CONTEXTO DO ROTEADOR:\n{{ $('Parsear Entrada').first().json.dados_roteador ? JSON.stringify($('Parsear Entrada').first().json.dados_roteador.dados_detectados || {}) : '{}' }}\n\nDADOS JÁ COLETADOS NA SESSÃO:\n{{ JSON.stringify($('Buscar Dados Existentes').first().json.output || {}) }}\n\nRESUMO DO HISTÓRICO:\n{{ $('Parsear Entrada').first().json.resumo_historico }}\n\nÚLTIMA MENSAGEM DO CIDADÃO:\n{{ $('Parsear Entrada').first().json.mensagem }}",
+        "text": "=CONTEXTO DO ROTEADOR:\n{{ $('Parsear Entrada').first().json.dados_roteador ? JSON.stringify($('Parsear Entrada').first().json.dados_roteador.dados_detectados || {}) : '{}' }}\n\nDADOS JÁ COLETADOS NA SESSÃO:\n{{ JSON.stringify($('Buscar Dados Existentes').first().json.output || {}) || null }}\n\nRESUMO DO HISTÓRICO:\n{{ $('Parsear Entrada').first().json.resumo_historico }}\n\nÚLTIMA MENSAGEM DO CIDADÃO:\n{{ $('Parsear Entrada').first().json.mensagem || null }}",
         "options": {
           "systemMessage": "=Você é o assistente virtual da Ouvidoria Municipal, atencioso, claro e objetivo.\nSeu papel é coletar informações de manifestações de cidadãos via WhatsApp.\nHoje é {{ $now.format('dd/MM/yyyy') + ' e agora são ' + $now.format('HH:mm') }}.\n\n{{ $('Buscar Prompts').first().json.cadastro }}\n\nIMPORTANTE - DADOS JÁ CONHECIDOS:\nO roteador já analisou a mensagem inicial e extraiu dados automaticamente.\nVocê DEVE usar esses dados e NÃO perguntar novamente o que já é conhecido.\nApenas preencha os dados_extraidos com o que já veio do roteador + o que o cidadão informou.\n\nSe o campo 'area' foi detectado pelo roteador, USE-O diretamente.\nSe o campo 'tipo_manifestacao' foi detectado, USE-O.\nSe dados de localização foram detectados, USE-OS."
         }
       },
-      "id": "agent-coleta-001",
+      "id": "6a3fd83d-f2b9-4753-827b-1177cdda8724",
       "name": "Agente de Coleta Inteligente",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
-      "position": [0, -200]
+      "position": [144, 400]
     },
     {
       "parameters": { "options": {} },
-      "id": "llm-coleta-001",
+      "id": "3cf0cacc-e970-480e-bc46-25a2d6e9a6f0",
       "name": "LLM Coleta",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [0, 0],
+      "position": [112, 640],
       "credentials": {
-        "googlePalmApi": { "id": "<<GOOGLE_CREDENTIAL_ID>>", "name": "Google AI" }
+        "googlePalmApi": { "id": "sOjFjRkcPMCDP1wy", "name": "DIEGO" }
       }
     },
     {
@@ -88,13 +89,13 @@
         "sessionTTL": 3600,
         "contextWindowLength": 15
       },
-      "id": "memory-coleta-001",
+      "id": "7269846b-2e83-4f5a-b486-93b739ce3f3d",
       "name": "Memoria Coleta",
       "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
       "typeVersion": 1.5,
-      "position": [128, 0],
+      "position": [288, 624],
       "credentials": {
-        "redis": { "id": "<<REDIS_CREDENTIAL_ID>>", "name": "Redis" }
+        "redis": { "id": "2cEQC4iAOPiyvfWA", "name": "Redis" }
       }
     },
     {
@@ -105,21 +106,21 @@
           "systemMessage": "={{ $('Buscar Prompts').first().json.base_conhecimento || 'Busque informações relevantes sobre a demanda do cidadão na base de conhecimento.' }}"
         }
       },
-      "id": "agent-rag-001",
+      "id": "a1f47174-f2a9-4455-9699-0a26304a8b3c",
       "name": "Agente RAG (Base de Conhecimento)",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
-      "position": [0, -500]
+      "position": [-320, 192]
     },
     {
       "parameters": { "options": {} },
-      "id": "llm-rag-001",
+      "id": "02823757-4419-4485-a04f-dc8fa64eef7a",
       "name": "LLM RAG",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [0, -300],
+      "position": [-352, 416],
       "credentials": {
-        "googlePalmApi": { "id": "<<GOOGLE_CREDENTIAL_ID>>", "name": "Google AI" }
+        "googlePalmApi": { "id": "sOjFjRkcPMCDP1wy", "name": "DIEGO" }
       }
     },
     {
@@ -134,70 +135,60 @@
         },
         "options": {}
       },
-      "id": "vectorstore-001",
+      "id": "8009b9e0-b847-4df6-a2a6-dd96a13a2210",
       "name": "Base de Conhecimento (Vector Store)",
       "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
       "typeVersion": 1.3,
-      "position": [128, -300],
+      "position": [-224, 416],
       "credentials": {
-        "supabaseApi": { "id": "<<SUPABASE_CREDENTIAL_ID>>", "name": "Supabase - Ouvidoria" }
+        "supabaseApi": { "id": "vp31qZQSpdQd2U2t", "name": "Supabase - Ouvidoria" }
       }
     },
     {
-      "parameters": {
-        "modelName": "models/gemini-embedding-001"
-      },
-      "id": "embeddings-001",
+      "parameters": { "modelName": "models/gemini-embedding-001" },
+      "id": "07c35eb5-c6fe-4c34-995d-c250c8dbe369",
       "name": "Embeddings",
       "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
       "typeVersion": 1,
-      "position": [256, -300],
+      "position": [-144, 624],
       "credentials": {
-        "googlePalmApi": { "id": "<<GOOGLE_CREDENTIAL_ID>>", "name": "Google AI" }
+        "googlePalmApi": { "id": "sOjFjRkcPMCDP1wy", "name": "DIEGO" }
       }
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json.output;\nconst cleaned = String(raw || '')\n  .replace(/```json/gi, '')\n  .replace(/```/g, '')\n  .trim();\n\ntry {\n  const parsed = JSON.parse(cleaned);\n  const dados = parsed?.dados_extraidos ?? {};\n  const camposConfigurados = parsed?.acao_sistema?.campos_para_salvar;\n\n  const campos = Array.isArray(camposConfigurados) && camposConfigurados.length > 0\n    ? camposConfigurados\n    : Object.keys(dados).filter(campo => \n        dados[campo] !== null && \n        dados[campo] !== undefined && \n        dados[campo] !== '' &&\n        campo !== 'canal_origem' &&\n        campo !== 'confirmado_usuario'\n      );\n\n  return [{\n    json: {\n      ...parsed,\n      campos_para_update: campos.map(campo => ({\n        campo,\n        valor: dados[campo] ?? null\n      })),\n      parse_error: false\n    }\n  }];\n} catch (e) {\n  // Fallback: extrair responder_cidadao por regex\n  const respMatch = raw.match(/\"responder_cidadao\"\\s*:\\s*\"([^\"]+)\"/);\n  return [{\n    json: {\n      responder_cidadao: respMatch ? respMatch[1] : raw,\n      status_coleta: { completo: false },\n      dados_extraidos: {},\n      acao_sistema: { armazenar: false, campos_para_salvar: [] },\n      campos_para_update: [],\n      parse_error: true\n    }\n  }];\n}"
+        "jsCode": "const raw = $input.first().json.output;\nconst cleaned = String(raw || '')\n  .replace(/```json/gi, '')\n  .replace(/```/g, '')\n  .trim();\n\ntry {\n  const parsed = JSON.parse(cleaned);\n  const dados = parsed?.dados_extraidos ?? {};\n  const camposConfigurados = parsed?.acao_sistema?.campos_para_salvar;\n\n  const campos = Array.isArray(camposConfigurados) && camposConfigurados.length > 0\n    ? camposConfigurados\n    : Object.keys(dados).filter(campo => \n        dados[campo] !== null && \n        dados[campo] !== undefined && \n        dados[campo] !== '' &&\n        campo !== 'canal_origem' &&\n        campo !== 'confirmado_usuario'\n      );\n\n  return [{\n    json: {\n      ...parsed,\n      campos_para_update: campos.map(campo => ({\n        campo,\n        valor: dados[campo] ?? null\n      })),\n      parse_error: false\n    }\n  }];\n} catch (e) {\n  const respMatch = raw.match(/\"responder_cidadao\"\\s*:\\s*\"([^\"]+)\"/);\n  return [{\n    json: {\n      responder_cidadao: respMatch ? respMatch[1] : raw,\n      status_coleta: { completo: false },\n      dados_extraidos: {},\n      acao_sistema: { armazenar: false, campos_para_salvar: [] },\n      campos_para_update: [],\n      parse_error: true\n    }\n  }];\n}"
       },
-      "id": "parse-coleta-001",
+      "id": "93e41cac-c27a-4b37-a24f-980591469e5c",
       "name": "Parsear Resposta Coleta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, -200]
+      "position": [496, 400]
     },
     {
       "parameters": {
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
           "conditions": [
-            {
-              "id": "if-salvar",
-              "leftValue": "={{ $json.acao_sistema.armazenar }}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
-            }
+            { "id": "if-salvar", "leftValue": "={{ $json.acao_sistema.armazenar }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "if-salvar-001",
+      "id": "7e684818-3f88-49e6-b041-7b2213dca487",
       "name": "Precisa Salvar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [480, -200]
+      "position": [720, 192]
     },
     {
-      "parameters": {
-        "batchSize": 1,
-        "options": {}
-      },
-      "id": "loop-update-001",
+      "parameters": { "options": {} },
+      "id": "94f8b04b-beab-4c5e-b892-faeb68dfd7ec",
       "name": "Loop Campos",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [720, -400]
+      "position": [944, 192]
     },
     {
       "parameters": {
@@ -219,13 +210,13 @@
           ]
         }
       },
-      "id": "update-supabase-001",
+      "id": "ce6b7003-3086-441f-b8d1-ff1702577c39",
       "name": "Atualizar Supabase",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [960, -300],
+      "position": [1168, 192],
       "credentials": {
-        "supabaseApi": { "id": "<<SUPABASE_CREDENTIAL_ID>>", "name": "Supabase - Ouvidoria" }
+        "supabaseApi": { "id": "vp31qZQSpdQd2U2t", "name": "Supabase - Ouvidoria" }
       }
     },
     {
@@ -233,22 +224,17 @@
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
           "conditions": [
-            {
-              "id": "if-completo",
-              "leftValue": "={{ $('Parsear Resposta Coleta').first().json.status_coleta.completo }}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
-            }
+            { "id": "if-completo", "leftValue": "={{ $('Parsear Resposta Coleta').first().json.status_coleta.completo }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true" } }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "if-completo-001",
+      "id": "78480c2a-e647-4f78-b610-6a5950bdf975",
       "name": "Coleta Completa?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [720, -200]
+      "position": [720, 496]
     },
     {
       "parameters": {
@@ -258,12 +244,7 @@
               "conditions": {
                 "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
                 "conditions": [
-                  {
-                    "id": "sw-confirm",
-                    "leftValue": "={{ $('Parsear Resposta Coleta').first().json.status_coleta.fase }}",
-                    "rightValue": "CONFIRMADO",
-                    "operator": { "type": "string", "operation": "equals" }
-                  }
+                  { "id": "sw-confirm", "leftValue": "={{ $('Parsear Resposta Coleta').first().json.status_coleta.fase }}", "rightValue": "CONFIRMADO", "operator": { "type": "string", "operation": "equals" } }
                 ],
                 "combinator": "and"
               },
@@ -274,41 +255,41 @@
         },
         "options": { "fallbackOutput": "extra", "renameFallbackOutput": "AGUARDANDO_CONFIRMACAO" }
       },
-      "id": "sw-fase-001",
+      "id": "fb1c2304-cce2-4f8c-9a92-a01404348d2c",
       "name": "Fase da Coleta",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [960, -200]
+      "position": [944, 432]
     },
     {
       "parameters": {
         "jsCode": "const dados = $('Buscar Dados Existentes').first().json.output;\nconst protocolo = dados.protocolo || 'N/A';\n\nreturn [\n  { json: { responder_cidadao: `Sua manifestação foi registrada com sucesso na Ouvidoria sob o protocolo *${protocolo}*.` } },\n  { json: { responder_cidadao: 'Sua demanda foi encaminhada para análise e em breve você receberá atualizações por aqui.' } },\n  { json: { responder_cidadao: 'Posso te ajudar com mais alguma coisa?' } }\n];"
       },
-      "id": "msg-sucesso-001",
+      "id": "0038842e-7fde-4625-a549-7313a2f40a94",
       "name": "Mensagem de Sucesso",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, -400]
+      "position": [1168, 384]
     },
     {
       "parameters": {
         "jsCode": "const parsed = $('Parsear Resposta Coleta').first().json;\nreturn [{ json: { responder_cidadao: parsed.responder_cidadao } }];"
       },
-      "id": "msg-proxima-001",
+      "id": "bcb54d0f-0fb8-4074-b31e-9cb061c5792e",
       "name": "Proxima Pergunta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, -100]
+      "position": [1168, 592]
     },
     {
       "parameters": {
-        "jsCode": "// Merge das saídas - retorna responder_cidadao para o workflow pai\nconst items = $input.all();\nconst resposta = items.map(i => i.json.responder_cidadao).filter(Boolean).join('\\n\\n');\nreturn [{ json: { responder_cidadao: resposta } }];"
+        "jsCode": "const items = $input.all();\nconst resposta = items.map(i => i.json.responder_cidadao).filter(Boolean).join('\\n\\n');\nreturn [{ json: { responder_cidadao: resposta } }];"
       },
-      "id": "merge-output-001",
+      "id": "d182f1ce-c154-489b-a8dc-66bd4605d319",
       "name": "Preparar Saida",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1440, -200]
+      "position": [1392, 496]
     }
   ],
   "connections": {
@@ -324,7 +305,7 @@
     "Memoria Coleta": { "ai_memory": [[{ "node": "Agente de Coleta Inteligente", "type": "ai_memory", "index": 0 }]] },
     "Agente de Coleta Inteligente": { "main": [[{ "node": "Parsear Resposta Coleta", "type": "main", "index": 0 }]] },
     "Parsear Resposta Coleta": { "main": [[{ "node": "Precisa Salvar?", "type": "main", "index": 0 }, { "node": "Coleta Completa?", "type": "main", "index": 0 }]] },
-    "Precisa Salvar?": { "main": [[{ "node": "Loop Campos", "type": "main", "index": 0 }], []] },
+    "Precisa Salvar?": { "main": [[{ "node": "Loop Campos", "type": "main", "index": 0 }]] },
     "Loop Campos": { "main": [[], [{ "node": "Atualizar Supabase", "type": "main", "index": 0 }]] },
     "Atualizar Supabase": { "main": [[{ "node": "Loop Campos", "type": "main", "index": 0 }]] },
     "Coleta Completa?": { "main": [[{ "node": "Fase da Coleta", "type": "main", "index": 0 }], [{ "node": "Proxima Pergunta", "type": "main", "index": 0 }]] },
@@ -333,5 +314,6 @@
     "Proxima Pergunta": { "main": [[{ "node": "Preparar Saida", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" },
-  "tags": [{ "name": "ouvidoria" }, { "name": "v2" }, { "name": "sub-workflow" }]
+  "tags": [{ "name": "ouvidoria" }, { "name": "v2" }, { "name": "sub-workflow" }],
+  "meta": { "templateCredsSetupCompleted": true }
 }
