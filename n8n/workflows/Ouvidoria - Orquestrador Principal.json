@@ -1,0 +1,701 @@
+{
+  "name": "Ouvidoria - Orquestrador Principal",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ouvidoria",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-001",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-2400, -200],
+      "webhookId": "ouvidoria-webhook-v2"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "<<ID_WORKFLOW_DEDUP>>",
+          "mode": "list",
+          "cachedResultName": "Correção UAZAPI"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $json.body.message.chatid }}",
+            "idMessage": "={{ $json.body.message.messageid }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "type": "string" },
+            { "id": "idMessage", "displayName": "idMessage", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dedup-001",
+      "name": "Verificar Duplicado",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [-2160, -200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "f-dedup",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "duplicado",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-001",
+      "name": "Filtrar Duplicados",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [-1920, -200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "p-01", "name": "remotejid", "value": "={{ $('WhatsApp Webhook').first().json.body.message.chatid }}", "type": "string" },
+            { "id": "p-02", "name": "mensagem", "value": "={{ $('WhatsApp Webhook').first().json.body.message.text }}", "type": "string" },
+            { "id": "p-03", "name": "BaseUrl", "value": "={{ $('WhatsApp Webhook').first().json.body.BaseUrl }}", "type": "string" },
+            { "id": "p-04", "name": "InstanceToken", "value": "={{ $('WhatsApp Webhook').first().json.body.token }}", "type": "string" },
+            { "id": "p-05", "name": "instanceName", "value": "={{ $('WhatsApp Webhook').first().json.body.instanceName }}", "type": "string" },
+            { "id": "p-06", "name": "endpoint", "value": "https://apiouvidoria.chatpratico.com.br", "type": "string" },
+            { "id": "p-07", "name": "apikey", "value": "<<SUA_API_KEY>>", "type": "string" },
+            { "id": "p-08", "name": "login", "value": "assistentevirtual@chatpratico.com.br", "type": "string" },
+            { "id": "p-09", "name": "senha", "value": "<<SUA_SENHA>>", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "params-001",
+      "name": "Parametros",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1680, -200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.endpoint }}/auth/v1/token",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "grant_type", "value": "password" }] },
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $json.apikey }}" }] },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "email", "value": "={{ $json.login }}" },
+            { "name": "password", "value": "={{ $json.senha }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "login-001",
+      "name": "Login Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-1440, -200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg-01",
+              "name": "mensagem",
+              "value": "={{ JSON.stringify({ id: $('WhatsApp Webhook').item.json.body.message.messageid, remoteJid: $('Parametros').item.json.remotejid, receivedAt: $now.toMillis(), texto: $('Parametros').item.json.mensagem }) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "json-001",
+      "name": "Formatar Mensagem",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1200, -200]
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "={{ $('Parametros').first().json.remotejid }}",
+        "messageData": "={{ $json.mensagem }}",
+        "tail": true
+      },
+      "id": "redis-push-001",
+      "name": "Buffer Mensagem (Redis Push)",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-960, -200],
+      "credentials": {
+        "redis": { "id": "<<REDIS_CREDENTIAL_ID>>", "name": "Redis" }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "wait-001",
+      "name": "Aguardar Digitacao",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-720, -200],
+      "webhookId": "wait-ouvidoria-v2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "={{ $('Parametros').first().json.remotejid }}",
+        "keyType": "list",
+        "options": {}
+      },
+      "id": "redis-get-001",
+      "name": "Recuperar Mensagens (Redis Get)",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-480, -200],
+      "credentials": {
+        "redis": { "id": "<<REDIS_CREDENTIAL_ID>>", "name": "Redis" }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [
+                  {
+                    "id": "sw-prosseguir",
+                    "leftValue": "={{ $json.propertyName.length > 0 && $json.propertyName.last().parseJson().id === $('Formatar Mensagem').item.json.mensagem.parseJson().id && ($now.toMillis() - $json.propertyName.last().parseJson().receivedAt) >= 5000 }}",
+                    "rightValue": "",
+                    "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PROSSEGUIR"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "AGUARDAR" }
+      },
+      "id": "sw-buffer-001",
+      "name": "Mensagem Completa?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [-240, -200]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $('Parametros').item.json.remotejid }}"
+      },
+      "id": "redis-del-001",
+      "name": "Limpar Buffer Redis",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [0, -200],
+      "credentials": {
+        "redis": { "id": "<<REDIS_CREDENTIAL_ID>>", "name": "Redis" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "merge-01",
+              "name": "texto",
+              "value": "={{ $json.propertyName.map(value => JSON.parse(value).texto).join(' ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "merge-msgs-001",
+      "name": "Unificar Mensagens",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, -200]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "<<ID_WORKFLOW_PRECADASTRO>>",
+          "mode": "list",
+          "cachedResultName": "Ouvidoria - PréCadastro"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": { "remotejid": "={{ $('Parametros').item.json.remotejid }}" },
+          "matchingColumns": ["remotejid"],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "precad-001",
+      "name": "Pre-Cadastro",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [480, -200]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "<<DATATABLE_HISTORICO_ID>>",
+          "mode": "list",
+          "cachedResultName": "Ouvidoria_HistoricoCvs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('Parametros').item.json.remotejid }}",
+            "sender": "user",
+            "content": "={{ $('Unificar Mensagens').first().json.texto }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "type": "string" },
+            { "id": "sender", "displayName": "sender", "type": "string" },
+            { "id": "content", "displayName": "content", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "hist-save-001",
+      "name": "Salvar Historico (User)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [720, -200]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "<<DATATABLE_HISTORICO_ID>>",
+          "mode": "list",
+          "cachedResultName": "Ouvidoria_HistoricoCvs"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            { "keyName": "remotejid", "keyValue": "={{ $('Parametros').item.json.remotejid }}" }
+          ]
+        },
+        "returnAll": true,
+        "orderBy": true,
+        "orderByDirection": "ASC"
+      },
+      "id": "hist-get-001",
+      "name": "Buscar Historico",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [960, -200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst mensagens = items.map(item => ({\n  sender: item.json.sender,\n  content: item.json.content\n}));\nreturn [{ json: { mensagens } }];"
+      },
+      "id": "hist-format-001",
+      "name": "Formatar Historico",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, -200]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "summary-chain-001",
+      "name": "Resumir Historico",
+      "type": "@n8n/n8n-nodes-langchain.chainSummarization",
+      "typeVersion": 2.1,
+      "position": [1440, -200]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "llm-summary-001",
+      "name": "LLM Resumo",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1440, 0],
+      "credentials": {
+        "googlePalmApi": { "id": "<<GOOGLE_CREDENTIAL_ID>>", "name": "Google AI" }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Resumir Historico').item.json.output.text }}\n\nÚltima mensagem do usuário: {{ $('Unificar Mensagens').first().json.texto }}",
+        "options": {
+          "systemMessage": "=Você é o roteador de intenções da Ouvidoria Municipal.\n\n{{ $json.orquestrador }}\n\nHoje é {{ $now.format('dd/MM/yyyy') }}."
+        }
+      },
+      "id": "agent-router-001",
+      "name": "Agente Roteador",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [1680, -400]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "llm-router-001",
+      "name": "LLM Roteador",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1680, -176],
+      "credentials": {
+        "googlePalmApi": { "id": "<<GOOGLE_CREDENTIAL_ID>>", "name": "Google AI" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "assistant_prompts",
+        "returnAll": true
+      },
+      "id": "prompt-fetch-001",
+      "name": "Buscar Prompts",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1440, -400],
+      "credentials": {
+        "supabaseApi": { "id": "<<SUPABASE_CREDENTIAL_ID>>", "name": "Supabase - Ouvidoria" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output;\nconst cleaned = String(raw || '').replace(/```json/gi, '').replace(/```/g, '').trim();\n\ntry {\n  const parsed = JSON.parse(cleaned);\n  return [{ json: { ...parsed, parse_error: false } }];\n} catch (e) {\n  // Fallback: tentar extrair intencao por regex\n  const intMatch = raw.match(/\"intencao\"\\s*:\\s*\"([^\"]+)\"/);\n  return [{\n    json: {\n      intencao: intMatch ? intMatch[1] : 'nova_manifestacao',\n      confianca: 0.5,\n      dados_detectados: {},\n      parse_error: true,\n      raw_output: raw\n    }\n  }];\n}"
+      },
+      "id": "parse-router-001",
+      "name": "Parsear Roteamento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, -400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [{ "id": "r-manif", "leftValue": "={{ $json.intencao }}", "rightValue": "nova_manifestacao", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Nova Manifestacao"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [{ "id": "r-consulta", "leftValue": "={{ $json.intencao }}", "rightValue": "consulta_protocolo", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Consulta Protocolo"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [{ "id": "r-humano", "leftValue": "={{ $json.intencao }}", "rightValue": "atendimento_humano", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Atendimento Humano"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [{ "id": "r-saudacao", "leftValue": "={{ $json.intencao }}", "rightValue": "saudacao", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Saudacao"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [{ "id": "r-info", "leftValue": "={{ $json.intencao }}", "rightValue": "informacao_geral", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Informacao Geral"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [{ "id": "r-confirm", "leftValue": "={{ $json.intencao }}", "rightValue": "confirmacao", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirmacao"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [{ "id": "r-cancel", "leftValue": "={{ $json.intencao }}", "rightValue": "cancelamento", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Cancelamento"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "Fallback" }
+      },
+      "id": "router-001",
+      "name": "Router de Intencoes",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [2160, -400]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "<<ID_WORKFLOW_TRIAGEM_COLETA>>",
+          "mode": "list",
+          "cachedResultName": "Ouvidoria - Triagem e Coleta"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('Parametros').item.json.remotejid }}",
+            "mensagem": "={{ $('Unificar Mensagens').first().json.texto }}",
+            "historico": "={{ JSON.stringify($('Formatar Historico').first().json.mensagens) }}",
+            "dados_roteador": "={{ JSON.stringify($('Parsear Roteamento').first().json) }}",
+            "resumo_historico": "={{ $('Resumir Historico').item.json.output.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "type": "string" },
+            { "id": "mensagem", "displayName": "mensagem", "type": "string" },
+            { "id": "historico", "displayName": "historico", "type": "string" },
+            { "id": "dados_roteador", "displayName": "dados_roteador", "type": "string" },
+            { "id": "resumo_historico", "displayName": "resumo_historico", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call-triagem-001",
+      "name": "Chamar Triagem e Coleta",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [2400, -800]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "<<ID_WORKFLOW_CONSULTA>>",
+          "mode": "list",
+          "cachedResultName": "Ouvidoria - Consulta Protocolo"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('Parametros').item.json.remotejid }}",
+            "mensagem": "={{ $('Unificar Mensagens').first().json.texto }}",
+            "dados_roteador": "={{ JSON.stringify($('Parsear Roteamento').first().json) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "type": "string" },
+            { "id": "mensagem", "displayName": "mensagem", "type": "string" },
+            { "id": "dados_roteador", "displayName": "dados_roteador", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call-consulta-001",
+      "name": "Chamar Consulta Protocolo",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [2400, -600]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "<<ID_WORKFLOW_HUMANO>>",
+          "mode": "list",
+          "cachedResultName": "Ouvidoria - Encaminhamento Humano"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('Parametros').item.json.remotejid }}",
+            "historico": "={{ JSON.stringify($('Formatar Historico').first().json.mensagens) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "type": "string" },
+            { "id": "historico", "displayName": "historico", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call-humano-001",
+      "name": "Chamar Atendimento Humano",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [2400, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const instanceName = $('Parametros').first().json.instanceName || 'Ouvidoria Municipal';\n\nreturn [{\n  json: {\n    responder_cidadao: `Olá! Sou o assistente virtual da Ouvidoria Municipal de ${instanceName}.\\n\\nPosso te ajudar com:\\n1 - *Registrar uma manifestação* (reclamação, denúncia, elogio, sugestão)\\n2 - *Consultar protocolo* existente\\n3 - *Falar com um atendente*\\n\\nComo posso te ajudar?`\n  }\n}];"
+      },
+      "id": "saudacao-001",
+      "name": "Gerar Saudacao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, -200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formata resposta para envio via WhatsApp\nconst data = $input.first().json;\nconst texto = data.responder_cidadao || data.output || data.resposta || 'Desculpe, não entendi. Pode reformular?';\n\nconst textoFormatado = texto\n  .replace(/\\*\\*/g, '*')\n  .replace(/\\s{2,}/g, ' ')\n  .replace(/\\s*\\n\\s*/g, '\\n')\n  .trim();\n\n// Quebrar em blocos para mensagens longas\nconst blocos = textoFormatado\n  .split(/\\n{2,}/)\n  .map(b => b.trim())\n  .filter(b => b.length > 0);\n\nreturn blocos.map(b => ({ json: { texto: b } }));"
+      },
+      "id": "format-response-001",
+      "name": "Formatar Resposta WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, -400]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "<<DATATABLE_HISTORICO_ID>>",
+          "mode": "list",
+          "cachedResultName": "Ouvidoria_HistoricoCvs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('Parametros').item.json.remotejid }}",
+            "sender": "assistant",
+            "content": "={{ $input.all().map(i => i.json.texto).join(' ') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "type": "string" },
+            { "id": "sender", "displayName": "sender", "type": "string" },
+            { "id": "content", "displayName": "content", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "hist-save-resp-001",
+      "name": "Salvar Historico (Assistente)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [3120, -400]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "loop-send-001",
+      "name": "Loop Envio",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [3120, -200]
+    },
+    {
+      "parameters": {
+        "number": "={{ $('Parametros').item.json.remotejid }}",
+        "text": "={{ $json.texto }}"
+      },
+      "id": "send-whatsapp-001",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-uazapi.uazApi",
+      "typeVersion": 1,
+      "position": [3360, -100],
+      "credentials": {
+        "uazApiApi": { "id": "<<UAZAPI_CREDENTIAL_ID>>", "name": "UazAPI" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', processed: true }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-ok-001",
+      "name": "Responder Webhook OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3600, -200]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": { "main": [[{ "node": "Verificar Duplicado", "type": "main", "index": 0 }]] },
+    "Verificar Duplicado": { "main": [[{ "node": "Filtrar Duplicados", "type": "main", "index": 0 }]] },
+    "Filtrar Duplicados": { "main": [[{ "node": "Parametros", "type": "main", "index": 0 }]] },
+    "Parametros": { "main": [[{ "node": "Login Supabase", "type": "main", "index": 0 }]] },
+    "Login Supabase": { "main": [[{ "node": "Formatar Mensagem", "type": "main", "index": 0 }]] },
+    "Formatar Mensagem": { "main": [[{ "node": "Buffer Mensagem (Redis Push)", "type": "main", "index": 0 }]] },
+    "Buffer Mensagem (Redis Push)": { "main": [[{ "node": "Aguardar Digitacao", "type": "main", "index": 0 }]] },
+    "Aguardar Digitacao": { "main": [[{ "node": "Recuperar Mensagens (Redis Get)", "type": "main", "index": 0 }]] },
+    "Recuperar Mensagens (Redis Get)": { "main": [[{ "node": "Mensagem Completa?", "type": "main", "index": 0 }]] },
+    "Mensagem Completa?": { "main": [[{ "node": "Limpar Buffer Redis", "type": "main", "index": 0 }]] },
+    "Limpar Buffer Redis": { "main": [[{ "node": "Unificar Mensagens", "type": "main", "index": 0 }]] },
+    "Unificar Mensagens": { "main": [[{ "node": "Pre-Cadastro", "type": "main", "index": 0 }]] },
+    "Pre-Cadastro": { "main": [[{ "node": "Salvar Historico (User)", "type": "main", "index": 0 }]] },
+    "Salvar Historico (User)": { "main": [[{ "node": "Buscar Historico", "type": "main", "index": 0 }]] },
+    "Buscar Historico": { "main": [[{ "node": "Formatar Historico", "type": "main", "index": 0 }]] },
+    "Formatar Historico": { "main": [[{ "node": "Buscar Prompts", "type": "main", "index": 0 }, { "node": "Resumir Historico", "type": "main", "index": 0 }]] },
+    "Resumir Historico": { "main": [[{ "node": "Agente Roteador", "type": "main", "index": 0 }]] },
+    "LLM Resumo": { "ai_languageModel": [[{ "node": "Resumir Historico", "type": "ai_languageModel", "index": 0 }]] },
+    "Buscar Prompts": { "main": [[{ "node": "Agente Roteador", "type": "main", "index": 0 }]] },
+    "LLM Roteador": { "ai_languageModel": [[{ "node": "Agente Roteador", "type": "ai_languageModel", "index": 0 }]] },
+    "Agente Roteador": { "main": [[{ "node": "Parsear Roteamento", "type": "main", "index": 0 }]] },
+    "Parsear Roteamento": { "main": [[{ "node": "Router de Intencoes", "type": "main", "index": 0 }]] },
+    "Router de Intencoes": {
+      "main": [
+        [{ "node": "Chamar Triagem e Coleta", "type": "main", "index": 0 }],
+        [{ "node": "Chamar Consulta Protocolo", "type": "main", "index": 0 }],
+        [{ "node": "Chamar Atendimento Humano", "type": "main", "index": 0 }],
+        [{ "node": "Gerar Saudacao", "type": "main", "index": 0 }],
+        [{ "node": "Chamar Triagem e Coleta", "type": "main", "index": 0 }],
+        [{ "node": "Chamar Triagem e Coleta", "type": "main", "index": 0 }],
+        [{ "node": "Gerar Saudacao", "type": "main", "index": 0 }],
+        [{ "node": "Chamar Triagem e Coleta", "type": "main", "index": 0 }]
+      ]
+    },
+    "Chamar Triagem e Coleta": { "main": [[{ "node": "Formatar Resposta WhatsApp", "type": "main", "index": 0 }]] },
+    "Chamar Consulta Protocolo": { "main": [[{ "node": "Formatar Resposta WhatsApp", "type": "main", "index": 0 }]] },
+    "Chamar Atendimento Humano": { "main": [[{ "node": "Formatar Resposta WhatsApp", "type": "main", "index": 0 }]] },
+    "Gerar Saudacao": { "main": [[{ "node": "Formatar Resposta WhatsApp", "type": "main", "index": 0 }]] },
+    "Formatar Resposta WhatsApp": { "main": [[{ "node": "Salvar Historico (Assistente)", "type": "main", "index": 0 }, { "node": "Loop Envio", "type": "main", "index": 0 }]] },
+    "Loop Envio": { "main": [[{ "node": "Responder Webhook OK", "type": "main", "index": 0 }], [{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]] },
+    "Enviar WhatsApp": { "main": [[{ "node": "Loop Envio", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "ouvidoria" }, { "name": "v2" }]
+}
