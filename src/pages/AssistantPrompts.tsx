@@ -64,10 +64,13 @@ const AssistantPromptsPage = () => {
     }
 
     const promptTypes = [
+        { slug: 'saudacao' as keyof AssistantPrompts, label: 'Saudação', description: 'Mensagem de boas-vindas e apresentação inicial do assistente.' },
         { slug: 'orquestrador' as keyof AssistantPrompts, label: 'Orquestrador', description: 'Prompt principal que decide qual assistente deve ser acionado.' },
+        { slug: 'triagem' as keyof AssistantPrompts, label: 'Triagem', description: 'Diretrizes para coletar informações iniciais da manifestação.' },
         { slug: 'cadastro' as keyof AssistantPrompts, label: 'Cadastro de Manifestação', description: 'Diretrizes para o assistente que auxilia o cidadão a registrar uma nova manifestação.' },
         { slug: 'consulta' as keyof AssistantPrompts, label: 'Consulta de Manifestação', description: 'Diretrizes para o assistente que ajuda o cidadão a consultar o status de manifestações existentes.' },
         { slug: 'atendimento' as keyof AssistantPrompts, label: 'Atendimento Humano', description: 'Instruções para quando a conversa deve ser transferida para um atendente humano.' },
+        { slug: 'baseConhecimento' as keyof AssistantPrompts, label: 'Base de Conhecimento', description: 'Informações e diretrizes gerais sobre as políticas e procedimentos da ouvidoria.' },
     ];
 
     return (
@@ -83,7 +86,7 @@ const AssistantPromptsPage = () => {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 bg-muted/50">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-4 h-auto p-1 bg-muted/50">
                     {promptTypes.map((type) => (
                         <TabsTrigger key={type.slug} value={type.slug} className="py-2.5 text-xs font-semibold">
                             {type.label}

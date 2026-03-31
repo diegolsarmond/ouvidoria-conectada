@@ -82,6 +82,9 @@ function mapAssistantPrompts(row: any): AssistantPrompts {
         cadastro: row.cadastro ?? '',
         consulta: row.consulta ?? '',
         atendimento: row.atendimento ?? '',
+        triagem: row.triagem ?? '',
+        saudacao: row.saudacao ?? '',
+        baseConhecimento: row.base_conhecimento ?? '',
         updatedAt: row.updated_at,
     };
 }
