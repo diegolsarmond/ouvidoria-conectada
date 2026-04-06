@@ -95,6 +95,22 @@ const Demandas = () => {
   });
 
   const filtered = demands.filter((d) => {
+    // Regra: perfil Atendente só visualiza demandas do seu órgão e atribuídas a ele mesmo
+    if (profile?.role === 'atendente') {
+      const isMyOrgan = d.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(d.organId));
+      const isAssignedToMe = d.assignedTo === profile.id;
+      if (!isMyOrgan || !isAssignedToMe) {
+        return false;
+      }
+    }
+
+    if (profile?.role === 'gestor_orgao' || profile?.role === 'ouvidor') {
+      const isMyOrgan = d.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(d.organId));
+      if (!isMyOrgan) {
+        return false;
+      }
+    }
+
     if (statusFilter !== 'all' && d.status !== statusFilter) return false;
     if (typeFilter !== 'all' && d.type !== typeFilter) return false;
     if (priorityFilter !== 'all' && d.priority !== priorityFilter) return false;
@@ -152,10 +168,12 @@ const Demandas = () => {
           <h1 className="text-2xl font-bold text-foreground">Demandas</h1>
           <p className="text-muted-foreground text-sm">Gerenciamento de manifestações</p>
         </div>
-        <Button className="gap-2" onClick={openCreate}>
-          <Plus className="w-4 h-4" />
-          Nova Demanda
-        </Button>
+        {profile?.role !== 'atendente' && (
+          <Button className="gap-2" onClick={openCreate}>
+            <Plus className="w-4 h-4" />
+            Nova Demanda
+          </Button>
+        )}
       </div>
 
       <DemandaModal open={modalOpen} onOpenChange={setModalOpen} demand={editingDemand} />
@@ -280,15 +298,17 @@ const Demandas = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEdit(d)}
-                              className="h-7 w-7 p-0"
-                              title="Editar"
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </Button>
+                            {profile?.role !== 'atendente' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEdit(d)}
+                                className="h-7 w-7 p-0"
+                                title="Editar"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            )}
                             {(d.status === 'respondida' || d.status === 'concluida' || d.status === 'cancelada') && (
                               <Button
                                 variant="ghost"

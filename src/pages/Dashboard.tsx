@@ -43,12 +43,30 @@ const deadlineClass = (days: number) => {
   return 'deadline-ok';
 };
 
+import { useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
-  const { data: demands = [], isLoading } = useQuery({
+  useEffect(() => {
+    if (profile?.role === 'atendente') {
+      navigate('/demandas', { replace: true });
+    }
+  }, [profile, navigate]);
+
+  const { data: rawDemands = [], isLoading } = useQuery({
     queryKey: ['demands'],
     queryFn: getDemands,
+  });
+
+  const demands = rawDemands.filter((d) => {
+    if (profile?.role === 'gestor_orgao' || profile?.role === 'ouvidor') {
+      const isMyOrgan = d.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(d.organId));
+      if (!isMyOrgan) return false;
+    }
+    return true;
   });
 
   // Compute live KPIs from real data
@@ -126,7 +144,7 @@ const Dashboard = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Visão geral das demandas da Ouvidoria Municipal</p>
+        <p className="text-muted-foreground text-sm">Visão geral das demandas da Ouvidoria</p>
       </div>
 
       {isLoading ? (

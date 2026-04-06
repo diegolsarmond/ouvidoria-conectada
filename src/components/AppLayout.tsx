@@ -82,7 +82,21 @@ const AppLayout = () => {
           {/* Navigation */}
           <nav className="flex-1 p-3 space-y-1">
             {navItems
-              .filter(item => !item.adminOnly || profile?.role === 'administrador')
+              .filter(item => {
+                if (profile?.role === 'atendente' && item.path !== '/demandas') {
+                  return false;
+                }
+                if (profile?.role === 'gestor_orgao' && (item.path === '/orgaos' || item.path === '/vinculos')) {
+                  return false;
+                }
+                if (profile?.role === 'ouvidor' && (item.path === '/orgaos' || item.path === '/vinculos' || item.path === '/usuarios')) {
+                  return false;
+                }
+                if (item.adminOnly && profile?.role !== 'administrador') {
+                  return false;
+                }
+                return true;
+              })
               .map((item) => {
                 const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
                 return (
@@ -136,7 +150,6 @@ const AppLayout = () => {
             <div className="flex-1" />
             <button className="relative text-muted-foreground hover:text-foreground transition-colors">
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] flex items-center justify-center font-bold">3</span>
             </button>
           </header>
 

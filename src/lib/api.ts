@@ -101,6 +101,17 @@ export async function getOrgans(): Promise<Organ[]> {
     return (data ?? []).map(mapOrgan);
 }
 
+// Versão sem RLS para uso em páginas públicas (sem sessão autenticada)
+export async function getOrgansPublic(): Promise<Organ[]> {
+    const { data, error } = await supabaseAdmin
+        .from('organs')
+        .select('*')
+        .order('name');
+
+    if (error) throw error;
+    return (data ?? []).map(mapOrgan);
+}
+
 export async function getUsers(): Promise<User[]> {
     // Fetch users
     const { data: usersData, error: usersError } = await supabase
@@ -271,7 +282,7 @@ export async function createUser(input: {
     const newUserId = authData.user.id;
 
     // 2. Criar o perfil do usuário em public.users
-    const { error: profileError } = await supabase.from('users').insert({
+    const { error: profileError } = await supabaseAdmin.from('users').insert({
         id: newUserId,
         name: input.name,
         cpf: input.cpf,
@@ -290,7 +301,7 @@ export async function createUser(input: {
 
     // 3. Insert user_organs relationships
     if (input.organIds.length > 0) {
-        const { error: uoError } = await supabase
+        const { error: uoError } = await supabaseAdmin
             .from('user_organs')
             .insert(input.organIds.map((organId) => ({
                 user_id: newUserId,
@@ -327,6 +338,43 @@ export async function createDemand(input: {
         .from('demands')
         .insert({
             // O protocolo agora é gerado automaticamente pelo banco via trigger
+            type: input.type,
+            status: 'registrada',
+            priority: input.priority,
+            organ_id: input.organId,
+            description: input.description,
+            channel: input.channel,
+            anonymous: input.anonymous,
+            citizen_name: input.citizenName || null,
+            citizen_cpf: input.citizenCpf || null,
+            citizen_phone: input.citizenPhone || null,
+            citizen_email: input.citizenEmail || null,
+            deadline: input.deadline,
+        })
+        .select('*, organs(acronym), assigned_user:users!assigned_to_id(name)')
+        .single();
+
+    if (error) throw error;
+    return mapDemand(data);
+}
+
+// Versão sem RLS para uso em páginas públicas (sem sessão autenticada)
+export async function createDemandPublic(input: {
+    type: string;
+    priority: string;
+    organId: string;
+    description: string;
+    channel: string;
+    anonymous: boolean;
+    citizenName?: string;
+    citizenCpf?: string;
+    citizenPhone?: string;
+    citizenEmail?: string;
+    deadline: string;
+}): Promise<Demand> {
+    const { data, error } = await supabaseAdmin
+        .from('demands')
+        .insert({
             type: input.type,
             status: 'registrada',
             priority: input.priority,
