@@ -37,6 +37,7 @@ import {
   Loader2,
   Lock,
   X,
+  Sparkles,
 } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
@@ -186,6 +187,7 @@ const DemandaDetalhe = () => {
   const [respostaText, setRespostaText] = useState('');
   const [respostaClassificacao, setRespostaClassificacao] = useState('');
   const [submittingResposta, setSubmittingResposta] = useState(false);
+  const [generatingResposta, setGeneratingResposta] = useState(false);
 
   // ─── Encaminhar (forward) dialog state ──────────────────────────────
   const [encaminharOpen, setEncaminharOpen] = useState(false);
@@ -405,6 +407,64 @@ const DemandaDetalhe = () => {
       toast({ title: 'Erro ao atribuir.', description: err.message, variant: 'destructive' });
     } finally {
       setSubmittingAtribuir(false);
+    }
+  };
+
+  const handleGerarRespostaIA = async () => {
+    if (!demand) return;
+
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
+      return;
+    }
+
+    const tipoLabel = DEMAND_TYPE_LABELS[demand.type] || demand.type;
+    const statusLabel = DEMAND_STATUS_LABELS[demand.status] || demand.status;
+    const orgao = demand.organName || 'Órgão responsável';
+    const historico = history.length > 0
+      ? history.map((h) => `- [${h.action}] ${h.description}`).join('\n')
+      : 'Nenhum andamento registrado.';
+
+    const prompt = `Você é um assistente de ouvidoria pública. Com base nas informações abaixo, redija uma resposta formal, clara e empática ao cidadão, adequada para uma ouvidoria municipal/estadual. A resposta deve ser objetiva, informar o resultado do atendimento e encerrar de forma cordial.
+
+**Tipo de manifestação:** ${tipoLabel}
+**Status atual:** ${statusLabel}
+**Órgão responsável:** ${orgao}
+**Descrição da manifestação:**
+${demand.description}
+
+**Andamentos registrados:**
+${historico}
+
+Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnecessárias e sem incluir campos de assinatura.`;
+
+    setGeneratingResposta(true);
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as any)?.error?.message || `Erro HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      if (generated) {
+        setRespostaText(generated.trim());
+        toast({ title: 'Resposta gerada com sucesso!' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao gerar resposta com IA.', description: err.message, variant: 'destructive' });
+    } finally {
+      setGeneratingResposta(false);
     }
   };
 
@@ -799,12 +859,29 @@ const DemandaDetalhe = () => {
                 <CardTitle className="text-sm font-semibold">Resposta ao Cidadão</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Textarea
-                  placeholder="Digite a resposta para o cidadão..."
-                  className="min-h-[150px]"
-                  value={respostaText}
-                  onChange={(e) => setRespostaText(e.target.value)}
-                />
+                <div className="relative">
+                  <Textarea
+                    placeholder="Digite a resposta para o cidadão..."
+                    className="min-h-[150px]"
+                    value={respostaText}
+                    onChange={(e) => setRespostaText(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="absolute top-2 right-2 gap-1 text-xs bg-background/90 backdrop-blur-sm border-primary/30 text-primary hover:bg-primary/5"
+                    onClick={handleGerarRespostaIA}
+                    disabled={generatingResposta}
+                  >
+                    {generatingResposta ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3" />
+                    )}
+                    {generatingResposta ? 'Gerando...' : 'Gerar com IA'}
+                  </Button>
+                </div>
                 <Select value={respostaClassificacao} onValueChange={setRespostaClassificacao}>
                   <SelectTrigger>
                     <SelectValue placeholder="Classificação de conclusão" />

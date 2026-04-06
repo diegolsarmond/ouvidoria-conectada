@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -380,7 +380,19 @@ const Login = () => {
               </CardContent>
             </Card>
 
-            <p className="text-center text-xs text-muted-foreground mt-6">
+            <div className="mt-6 text-center space-y-2">
+              <p className="text-xs text-muted-foreground">
+                É cidadão e quer registrar uma manifestação?
+              </p>
+              <Link
+                to="/nova-demanda"
+                className="inline-block text-sm font-medium text-accent hover:underline"
+              >
+                Acesse o formulário público →
+              </Link>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground mt-4">
               Sistema restrito a servidores autorizados.
             </p>
           </div>

@@ -16,6 +16,7 @@ import Usuarios from "./pages/Usuarios";
 import Vinculos from "./pages/Vinculos";
 import AssistantPrompts from "./pages/AssistantPrompts";
 import NotFound from "./pages/NotFound";
+import NovaDemandaPublica from "./pages/NovaDemandaPublica";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +50,7 @@ const App = () => (
                 <Route path="/assistant-prompts" element={<AssistantPrompts />} />
               </Route>
             </Route>
+            <Route path="/nova-demanda" element={<NovaDemandaPublica />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
