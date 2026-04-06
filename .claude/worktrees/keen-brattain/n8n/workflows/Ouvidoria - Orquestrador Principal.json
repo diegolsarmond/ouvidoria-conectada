@@ -1,0 +1,565 @@
+{
+  "name": "Ouvidoria - Orquestrador Principal",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ouvidoria",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-001",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-2400, 400],
+      "webhookId": "ana-ouvidoria"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "param-login", "name": "login", "value": "assistentevirtual@chatpratico.com.br", "type": "string" },
+            { "id": "param-senha", "name": "senha", "value": "123456", "type": "string" },
+            { "id": "param-endpoint", "name": "endpoint", "value": "https://apiouvidoria.chatpratico.com.br", "type": "string" },
+            { "id": "param-apikey", "name": "apikey", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE", "type": "string" },
+            { "id": "param-organ", "name": "organ_id", "value": "b6b1cf6d-b338-4389-928e-9f048df6e50e", "type": "string" },
+            { "id": "param-jid", "name": "remotejid", "value": "={{ $('WhatsApp Webhook').first().json.body.message.chatid }}", "type": "string" },
+            { "id": "param-msg", "name": "mensagem", "value": "={{ $('WhatsApp Webhook').first().json.body.message.text }}", "type": "string" },
+            { "id": "param-base", "name": "BaseUrl", "value": "={{ $('WhatsApp Webhook').first().json.body.BaseUrl }}", "type": "string" },
+            { "id": "param-token", "name": "InstanceToken", "value": "={{ $('WhatsApp Webhook').first().json.body.token }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parametros-001",
+      "name": "parametros",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-2160, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "json-msg",
+              "name": "mensagem",
+              "value": "={{ JSON.stringify({ id: $('WhatsApp Webhook').item.json.body.message.messageid, remoteJid: $('parametros').item.json.remotejid, receivedAt: $now.toMillis(), texto: $json.texto || $('parametros').item.json.mensagem }) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "json-001",
+      "name": "json",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1920, 400]
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "={{ $('parametros').first().json.remotejid }}",
+        "messageData": "={{ $json.mensagem }}",
+        "tail": true
+      },
+      "id": "redis-push-001",
+      "name": "push",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-1680, 400],
+      "credentials": {
+        "redis": { "id": "2cEQC4iAOPiyvfWA", "name": "Redis" }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "wait-001",
+      "name": "Wait1",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-1440, 400],
+      "webhookId": "282fa9c4-a724-4997-a459-5b991bbdfa47"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "={{ $('parametros').first().json.remotejid }}",
+        "keyType": "list",
+        "options": {}
+      },
+      "id": "redis-get-001",
+      "name": "get",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-1200, 400],
+      "credentials": {
+        "redis": { "id": "2cEQC4iAOPiyvfWA", "name": "Redis" }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+                "conditions": [
+                  {
+                    "id": "switch-buffer",
+                    "leftValue": "={{ $json.propertyName.length > 0 && $json.propertyName.last().parseJson().id === $('json').item.json.mensagem.parseJson().id && ($now.toMillis() - $json.propertyName.last().parseJson().receivedAt) >= 5000 }}",
+                    "rightValue": "",
+                    "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PROSSEGUIR"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "AGUARDAR" }
+      },
+      "id": "switch-buffer-001",
+      "name": "Switch Buffer",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [-960, 400]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $('parametros').item.json.remotejid }}"
+      },
+      "id": "redis-delete-001",
+      "name": "delete1",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-720, 400],
+      "credentials": {
+        "redis": { "id": "2cEQC4iAOPiyvfWA", "name": "Redis" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg-texto",
+              "name": "texto",
+              "value": "={{ $json.propertyName.map(value => JSON.parse(value).texto).join(' ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mensagem-001",
+      "name": "mensagem",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-480, 400]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "rbc6W59ncj8ADQhr",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/rbc6W59ncj8ADQhr",
+          "cachedResultName": "Ouvidoria - PréCadastro"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": { "remotejid": "={{ $('parametros').item.json.remotejid }}" },
+          "matchingColumns": ["remotejid"],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string", "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "precadastro-001",
+      "name": "preCadastro",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [-240, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('parametros').first().json.endpoint }}/auth/v1/token",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "grant_type", "value": "password" }] },
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $('parametros').first().json.apikey }}" }] },
+        "sendBody": true,
+        "bodyParameters": { "parameters": [
+          { "name": "email", "value": "={{ $('parametros').first().json.login }}" },
+          { "name": "password", "value": "={{ $('parametros').first().json.senha }}" }
+        ] },
+        "options": { "redirect": { "redirect": {} } }
+      },
+      "id": "login-001",
+      "name": "login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-2160, 200]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "assistant_prompts",
+        "returnAll": true
+      },
+      "id": "prompts-001",
+      "name": "Buscar Prompts",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [0, 200],
+      "credentials": {
+        "supabaseApi": { "id": "vp31qZQSpdQd2U2t", "name": "Supabase - Ouvidoria" }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Mensagem do cidadão: {{ $('mensagem').first().json.texto }}\n\nDados do pré-cadastro:\n{{ JSON.stringify($('preCadastro').first().json.output) }}\n\nClassifique a intenção e extraia dados conforme o prompt do sistema.",
+        "options": {
+          "systemMessage": "={{ $('Buscar Prompts').first().json.orquestrador }}"
+        }
+      },
+      "id": "agent-router-001",
+      "name": "Roteador IA",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "llm-router-001",
+      "name": "LLM Roteador",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [240, 600],
+      "credentials": {
+        "googlePalmApi": { "id": "sOjFjRkcPMCDP1wy", "name": "DIEGO" }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('preCadastro').first().json.output.remotejid.split('@')[0] }}",
+        "sessionTTL": 3600,
+        "contextWindowLength": 10
+      },
+      "id": "memory-router-001",
+      "name": "Redis Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [400, 600],
+      "credentials": {
+        "redis": { "id": "2cEQC4iAOPiyvfWA", "name": "Redis" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output || '';\nconst cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  // Fallback: tenta extrair campos via regex\n  const intencaoMatch = cleaned.match(/intencao[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/i);\n  const respMatch = cleaned.match(/responder_cidadao[\"']?\\s*[:=]\\s*[\"']([^\"']+)[\"']/i);\n  parsed = {\n    intencao: intencaoMatch ? intencaoMatch[1] : 'cadastro',\n    responder_cidadao: respMatch ? respMatch[1] : cleaned\n  };\n}\n\nconst intencao = (parsed.intencao || 'cadastro').toLowerCase().trim();\nconst dados_roteador = JSON.stringify(parsed);\n\nreturn [{\n  json: {\n    intencao,\n    responder_cidadao: parsed.responder_cidadao || '',\n    dados_roteador,\n    remotejid: $('parametros').first().json.remotejid,\n    mensagem: $('mensagem').first().json.texto\n  }\n}];"
+      },
+      "id": "parsear-roteador-001",
+      "name": "Parsear Roteador",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  { "id": "route-saudacao", "leftValue": "={{ $json.intencao }}", "rightValue": "saudacao", "operator": { "type": "string", "operation": "equals" } }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "saudacao"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  { "id": "route-consulta", "leftValue": "={{ $json.intencao }}", "rightValue": "consulta", "operator": { "type": "string", "operation": "equals" } }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "consulta"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict", "version": 3 },
+                "conditions": [
+                  { "id": "route-encaminhar", "leftValue": "={{ $json.intencao }}", "rightValue": "encaminhar_humano", "operator": { "type": "string", "operation": "equals" } }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "encaminhar_humano"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "cadastro" }
+      },
+      "id": "switch-intencao-001",
+      "name": "Router Intencao",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [720, 400]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=O cidadão disse: {{ $('mensagem').first().json.texto }}\n\nDados do pré-cadastro: {{ JSON.stringify($('preCadastro').first().json.output) }}\n\nGere uma saudação personalizada conforme o prompt.",
+        "options": {
+          "systemMessage": "={{ $('Buscar Prompts').first().json.saudacao }}"
+        }
+      },
+      "id": "agent-saudacao-001",
+      "name": "Agente Saudacao",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [960, 100]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "llm-saudacao-001",
+      "name": "LLM Saudacao",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [960, 300],
+      "credentials": {
+        "googlePalmApi": { "id": "sOjFjRkcPMCDP1wy", "name": "DIEGO" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output || $input.first().json.responder_cidadao || '';\nconst cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();\n\ntry {\n  const parsed = JSON.parse(cleaned);\n  return [{ json: { responder_cidadao: parsed.responder_cidadao || cleaned } }];\n} catch (e) {\n  return [{ json: { responder_cidadao: cleaned || 'Olá! Sou o assistente virtual da Ouvidoria Municipal. Como posso ajudá-lo hoje?' } }];\n}"
+      },
+      "id": "parsear-saudacao-001",
+      "name": "Parsear Saudacao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 100]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NqNxDfDYy7E7gZlF",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NqNxDfDYy7E7gZlF",
+          "cachedResultName": "Ouvidoria - Consulta Protocolo"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('parametros').item.json.remotejid }}",
+            "mensagem": "={{ $('mensagem').first().json.texto }}",
+            "dados_roteador": "={{ $('Parsear Roteador').first().json.dados_roteador }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" },
+            { "id": "mensagem", "displayName": "mensagem", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" },
+            { "id": "dados_roteador", "displayName": "dados_roteador", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "exec-consulta-001",
+      "name": "Sub Consulta",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [960, 400]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "oUZa5b6nEGLoazbw",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/oUZa5b6nEGLoazbw",
+          "cachedResultName": "Ouvidoria - Encaminhamento Humano"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('parametros').item.json.remotejid }}",
+            "mensagem": "={{ $('mensagem').first().json.texto }}",
+            "dados_roteador": "={{ $('Parsear Roteador').first().json.dados_roteador }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" },
+            { "id": "mensagem", "displayName": "mensagem", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" },
+            { "id": "dados_roteador", "displayName": "dados_roteador", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "exec-encaminhamento-001",
+      "name": "Sub Encaminhamento",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [960, 700]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "YsegtY5A3ZK04X7D",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/YsegtY5A3ZK04X7D",
+          "cachedResultName": "Ouvidoria - Triagem e Coleta"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "remotejid": "={{ $('parametros').item.json.remotejid }}",
+            "mensagem": "={{ $('mensagem').first().json.texto }}",
+            "dados_roteador": "={{ $('Parsear Roteador').first().json.dados_roteador }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "remotejid", "displayName": "remotejid", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" },
+            { "id": "mensagem", "displayName": "mensagem", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" },
+            { "id": "dados_roteador", "displayName": "dados_roteador", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true, "type": "string" }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "exec-triagem-001",
+      "name": "Sub Triagem e Coleta",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [960, 1000]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst resposta = data.responder_cidadao || data.output?.responder_cidadao || data.output || '';\n\nconst textoFormatado = String(resposta)\n  .replace(/\\*\\*/g, '')\n  .replace(/\\*/g, '')\n  .replace(/\\s{2,}/g, ' ')\n  .replace(/\\s*\\n\\s*/g, '\\n')\n  .replace(/\\b(1|2|3|4|Dr|Dra|Sr|Sra|Srta|Prof|Profa|Exmo|Exma|etc|Ex|Fig|Vol|Pág|N)\\./gi, '$1{{PONTO}}')\n  .replace(/\\.(\\s|$)/g, '.\\n\\n')\n  .replace(/([!?])(\\s|$)/g, '$1\\n\\n')\n  .replace(/{{PONTO}}/g, '.')\n  .replace(/\\r\\n/g, '\\n')\n  .trim();\n\nconst blocos = textoFormatado\n  .split(/\\n+/)\n  .map(b => b.trim())\n  .filter(b => b.length > 0);\n\nreturn blocos.map(b => ({ json: { texto: b } }));"
+      },
+      "id": "formatar-resposta-001",
+      "name": "Formatar Resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 400]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-envio-001",
+      "name": "Loop Envio",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1680, 400]
+    },
+    {
+      "parameters": {
+        "number": "={{ $('parametros').item.json.remotejid }}",
+        "text": "={{ $json.texto }}"
+      },
+      "id": "enviar-whatsapp-001",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-uazapi.uazApi",
+      "typeVersion": 1,
+      "position": [1920, 500],
+      "credentials": {
+        "uazApiApi": { "id": "kaOowQXltlQ1I4mk", "name": "UazAPI" }
+      }
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "done-envio-001",
+      "name": "Envio Concluido",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1920, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=ok",
+        "options": {}
+      },
+      "id": "respond-webhook-001",
+      "name": "Respond Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2160, 400]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": { "main": [[{ "node": "parametros", "type": "main", "index": 0 }]] },
+    "parametros": { "main": [[
+      { "node": "login", "type": "main", "index": 0 },
+      { "node": "json", "type": "main", "index": 0 }
+    ]] },
+    "json": { "main": [[{ "node": "push", "type": "main", "index": 0 }]] },
+    "push": { "main": [[{ "node": "Wait1", "type": "main", "index": 0 }]] },
+    "Wait1": { "main": [[{ "node": "get", "type": "main", "index": 0 }]] },
+    "get": { "main": [[{ "node": "Switch Buffer", "type": "main", "index": 0 }]] },
+    "Switch Buffer": { "main": [
+      [{ "node": "delete1", "type": "main", "index": 0 }],
+      []
+    ] },
+    "delete1": { "main": [[{ "node": "mensagem", "type": "main", "index": 0 }]] },
+    "mensagem": { "main": [[{ "node": "preCadastro", "type": "main", "index": 0 }]] },
+    "preCadastro": { "main": [[
+      { "node": "Buscar Prompts", "type": "main", "index": 0 },
+      { "node": "Roteador IA", "type": "main", "index": 0 }
+    ]] },
+    "Buscar Prompts": { "main": [[{ "node": "Roteador IA", "type": "main", "index": 0 }]] },
+    "LLM Roteador": { "ai_languageModel": [[{ "node": "Roteador IA", "type": "ai_languageModel", "index": 0 }]] },
+    "Redis Chat Memory": { "ai_memory": [[{ "node": "Roteador IA", "type": "ai_memory", "index": 0 }]] },
+    "Roteador IA": { "main": [[{ "node": "Parsear Roteador", "type": "main", "index": 0 }]] },
+    "Parsear Roteador": { "main": [[{ "node": "Router Intencao", "type": "main", "index": 0 }]] },
+    "Router Intencao": { "main": [
+      [{ "node": "Agente Saudacao", "type": "main", "index": 0 }],
+      [{ "node": "Sub Consulta", "type": "main", "index": 0 }],
+      [{ "node": "Sub Encaminhamento", "type": "main", "index": 0 }],
+      [{ "node": "Sub Triagem e Coleta", "type": "main", "index": 0 }]
+    ] },
+    "LLM Saudacao": { "ai_languageModel": [[{ "node": "Agente Saudacao", "type": "ai_languageModel", "index": 0 }]] },
+    "Agente Saudacao": { "main": [[{ "node": "Parsear Saudacao", "type": "main", "index": 0 }]] },
+    "Parsear Saudacao": { "main": [[{ "node": "Formatar Resposta", "type": "main", "index": 0 }]] },
+    "Sub Consulta": { "main": [[{ "node": "Formatar Resposta", "type": "main", "index": 0 }]] },
+    "Sub Encaminhamento": { "main": [[{ "node": "Formatar Resposta", "type": "main", "index": 0 }]] },
+    "Sub Triagem e Coleta": { "main": [[{ "node": "Formatar Resposta", "type": "main", "index": 0 }]] },
+    "Formatar Resposta": { "main": [[{ "node": "Loop Envio", "type": "main", "index": 0 }]] },
+    "Loop Envio": { "main": [
+      [{ "node": "Envio Concluido", "type": "main", "index": 0 }],
+      [{ "node": "Enviar WhatsApp", "type": "main", "index": 0 }]
+    ] },
+    "Enviar WhatsApp": { "main": [[{ "node": "Loop Envio", "type": "main", "index": 0 }]] },
+    "Envio Concluido": { "main": [[{ "node": "Respond Webhook", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ouvidoria" }, { "name": "v2" }],
+  "meta": { "templateCredsSetupCompleted": true }
+}

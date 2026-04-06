@@ -1,0 +1,108 @@
+{
+  "name": "Ouvidoria - Encaminhamento Humano",
+  "nodes": [
+    {
+      "parameters": { "inputSource": "passthrough" },
+      "id": "trigger-eh-001",
+      "name": "Inicio",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-800, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst dados = input.dados_roteador ? JSON.parse(input.dados_roteador) : {};\n\nreturn [{\n  json: {\n    remotejid: input.remotejid,\n    mensagem: input.mensagem,\n    protocolo: input.protocolo || dados.dados_detectados?.protocolo || null,\n    nome: input.nome || null,\n    area: input.area || dados.intencao_detectada?.area || null,\n    motivo_encaminhamento: dados.intencao_detectada?.motivo || 'Solicitação de atendimento humano'\n  }\n}];"
+      },
+      "id": "parse-eh-001",
+      "name": "Parsear Entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 400]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "assistant_prompts",
+        "returnAll": true
+      },
+      "id": "prompts-eh-001",
+      "name": "Buscar Prompts",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-320, 250],
+      "credentials": {
+        "supabaseApi": { "id": "vp31qZQSpdQd2U2t", "name": "Supabase - Ouvidoria" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "conversas_ativas",
+        "returnAll": false,
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            { "keyName": "remotejid", "condition": "eq", "keyValue": "={{ $('Parsear Entrada').first().json.remotejid }}" }
+          ]
+        }
+      },
+      "id": "buscar-conversa-eh",
+      "name": "Buscar Conversa",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-320, 550],
+      "credentials": {
+        "supabaseApi": { "id": "vp31qZQSpdQd2U2t", "name": "Supabase - Ouvidoria" }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Contexto do atendimento:\n- Cidadão: {{ $('Parsear Entrada').first().json.nome || 'não identificado' }}\n- Área: {{ $('Parsear Entrada').first().json.area || 'não definida' }}\n- Protocolo: {{ $('Parsear Entrada').first().json.protocolo || 'não gerado ainda' }}\n- Motivo do encaminhamento: {{ $('Parsear Entrada').first().json.motivo_encaminhamento }}\n- Última mensagem: {{ $('Parsear Entrada').first().json.mensagem }}\n- Dados da conversa: {{ JSON.stringify($('Buscar Conversa').first().json) }}\n\nGere a mensagem de transição para atendimento humano conforme o prompt.",
+        "options": {
+          "systemMessage": "={{ $('Buscar Prompts').first().json.atendimento }}"
+        }
+      },
+      "id": "agent-atendimento",
+      "name": "Agente Atendimento",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [-40, 400]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "llm-atendimento",
+      "name": "LLM Atendimento",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [-40, 600],
+      "credentials": {
+        "googlePalmApi": { "id": "sOjFjRkcPMCDP1wy", "name": "DIEGO" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output || $input.first().json.responder_cidadao || '';\nconst cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();\n\ntry {\n  const parsed = JSON.parse(cleaned);\n  return [{ json: {\n    responder_cidadao: parsed.responder_cidadao || cleaned,\n    encaminhar_humano: true,\n    area: $('Parsear Entrada').first().json.area || parsed.area || null,\n    motivo: $('Parsear Entrada').first().json.motivo_encaminhamento\n  } }];\n} catch (e) {\n  return [{ json: {\n    responder_cidadao: cleaned || 'Vou transferir você para um atendente humano. Aguarde um momento, por favor.',\n    encaminhar_humano: true,\n    area: $('Parsear Entrada').first().json.area || null,\n    motivo: $('Parsear Entrada').first().json.motivo_encaminhamento\n  } }];\n}"
+      },
+      "id": "preparar-saida-eh",
+      "name": "Preparar Saida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 400]
+    }
+  ],
+  "connections": {
+    "Inicio": { "main": [[{ "node": "Parsear Entrada", "type": "main", "index": 0 }]] },
+    "Parsear Entrada": { "main": [[
+      { "node": "Buscar Prompts", "type": "main", "index": 0 },
+      { "node": "Buscar Conversa", "type": "main", "index": 0 }
+    ]] },
+    "Buscar Prompts": { "main": [[{ "node": "Agente Atendimento", "type": "main", "index": 0 }]] },
+    "Buscar Conversa": { "main": [[{ "node": "Agente Atendimento", "type": "main", "index": 0 }]] },
+    "LLM Atendimento": { "ai_languageModel": [[{ "node": "Agente Atendimento", "type": "ai_languageModel", "index": 0 }]] },
+    "Agente Atendimento": { "main": [[{ "node": "Preparar Saida", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ouvidoria" }, { "name": "v2" }, { "name": "sub-workflow" }],
+  "meta": { "templateCredsSetupCompleted": true }
+}

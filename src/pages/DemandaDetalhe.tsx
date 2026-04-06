@@ -93,6 +93,32 @@ function formatDateTime(raw: string): string {
   });
 }
 
+function normalizeFirstLetter(raw?: string | null): string {
+  const text = (raw ?? '').trim();
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function maskPhoneIfAnonymous(raw: string, isAnonymous: boolean): string {
+  if (!isAnonymous) return raw;
+
+  const chars = raw.split('');
+  let digitsMasked = 0;
+
+  for (let i = chars.length - 1; i >= 0 && digitsMasked < 4; i -= 1) {
+    if (/\d/.test(chars[i])) {
+      chars[i] = '*';
+      digitsMasked += 1;
+    }
+  }
+
+  return chars.join('');
+}
+
 const statusClass = (status: string) => {
   const map: Record<string, string> = {
     registrada: 'status-badge-registered',
@@ -178,6 +204,7 @@ const DemandaDetalhe = () => {
 
   // ─── Derived: is demand closed? ─────────────────────────────────────
   const isClosed = demand?.status === 'respondida' || demand?.status === 'concluida' || demand?.status === 'cancelada';
+  const attachmentCount = Number(demand?.attachments ?? 0);
 
   // ─── Action label map ───────────────────────────────────────────────
   const ANDAMENTO_LABELS: Record<string, string> = {
@@ -544,10 +571,10 @@ const DemandaDetalhe = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-foreground leading-relaxed">{demand.description}</p>
-              {demand.attachments && (
+              {attachmentCount > 0 && (
                 <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <Paperclip className="w-4 h-4" />
-                  {demand.attachments} anexo(s)
+                  {attachmentCount} anexo(s)
                 </div>
               )}
             </CardContent>
@@ -613,7 +640,9 @@ const DemandaDetalhe = () => {
                   {demand.conversaAtiva.telefone && (
                     <div>
                       <p className="text-muted-foreground text-xs">Telefone</p>
-                      <p className="font-medium text-foreground">{demand.conversaAtiva.telefone}</p>
+                      <p className="font-medium text-foreground">
+                        {maskPhoneIfAnonymous(demand.conversaAtiva.telefone, !!demand.anonymous)}
+                      </p>
                     </div>
                   )}
                   {demand.conversaAtiva.cpf && (
@@ -632,16 +661,16 @@ const DemandaDetalhe = () => {
                     <div className="col-span-1 md:col-span-2">
                       <p className="text-muted-foreground text-xs">Endereço</p>
                       <p className="font-medium text-foreground">
-                        {demand.conversaAtiva.endereco}
-                        {demand.conversaAtiva.bairro && `, Bairro: ${demand.conversaAtiva.bairro}`}
-                        {demand.conversaAtiva.cidade && ` - ${demand.conversaAtiva.cidade}`}
+                        {normalizeFirstLetter(demand.conversaAtiva.endereco)}
+                        {demand.conversaAtiva.bairro && `, Bairro: ${normalizeFirstLetter(demand.conversaAtiva.bairro)}`}
+                        {demand.conversaAtiva.cidade && ` - ${normalizeFirstLetter(demand.conversaAtiva.cidade)}`}
                       </p>
                     </div>
                   )}
                   {demand.conversaAtiva.pontoReferencia && (
                     <div className="col-span-1 md:col-span-2">
                       <p className="text-muted-foreground text-xs">Ponto de Referência</p>
-                      <p className="font-medium text-foreground">{demand.conversaAtiva.pontoReferencia}</p>
+                      <p className="font-medium text-foreground">{normalizeFirstLetter(demand.conversaAtiva.pontoReferencia)}</p>
                     </div>
                   )}
                   {demand.conversaAtiva.dataOcorrencia && (

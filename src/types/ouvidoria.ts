@@ -136,5 +136,8 @@ export interface AssistantPrompts {
   cadastro: string;
   consulta: string;
   atendimento: string;
+  triagem: string;
+  saudacao: string;
+  baseConhecimento: string;
   updatedAt: string;
 }
