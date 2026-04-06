@@ -358,6 +358,43 @@ export async function createDemand(input: {
     return mapDemand(data);
 }
 
+// Versão sem RLS para uso em páginas públicas (sem sessão autenticada)
+export async function createDemandPublic(input: {
+    type: string;
+    priority: string;
+    organId: string;
+    description: string;
+    channel: string;
+    anonymous: boolean;
+    citizenName?: string;
+    citizenCpf?: string;
+    citizenPhone?: string;
+    citizenEmail?: string;
+    deadline: string;
+}): Promise<Demand> {
+    const { data, error } = await supabaseAdmin
+        .from('demands')
+        .insert({
+            type: input.type,
+            status: 'registrada',
+            priority: input.priority,
+            organ_id: input.organId,
+            description: input.description,
+            channel: input.channel,
+            anonymous: input.anonymous,
+            citizen_name: input.citizenName || null,
+            citizen_cpf: input.citizenCpf || null,
+            citizen_phone: input.citizenPhone || null,
+            citizen_email: input.citizenEmail || null,
+            deadline: input.deadline,
+        })
+        .select('*, organs(acronym), assigned_user:users!assigned_to_id(name)')
+        .single();
+
+    if (error) throw error;
+    return mapDemand(data);
+}
+
 export async function addUserOrganLink(userId: string, organId: string): Promise<void> {
     const { error } = await supabase
         .from('user_organs')
