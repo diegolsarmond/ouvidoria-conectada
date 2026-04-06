@@ -101,6 +101,17 @@ export async function getOrgans(): Promise<Organ[]> {
     return (data ?? []).map(mapOrgan);
 }
 
+// Versão sem RLS para uso em páginas públicas (sem sessão autenticada)
+export async function getOrgansPublic(): Promise<Organ[]> {
+    const { data, error } = await supabaseAdmin
+        .from('organs')
+        .select('*')
+        .order('name');
+
+    if (error) throw error;
+    return (data ?? []).map(mapOrgan);
+}
+
 export async function getUsers(): Promise<User[]> {
     // Fetch users
     const { data: usersData, error: usersError } = await supabase

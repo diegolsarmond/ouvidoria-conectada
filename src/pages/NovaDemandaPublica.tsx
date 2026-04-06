@@ -10,7 +10,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Shield, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
-import { createDemand, getOrgans } from '@/lib/api';
+import { createDemand, getOrgansPublic } from '@/lib/api';
 import { DEMAND_TYPE_LABELS } from '@/types/ouvidoria';
 
 const cpfMask = (value: string) =>
@@ -49,7 +49,7 @@ export default function NovaDemandaPublica() {
 
     const { data: organs = [], isLoading: organsLoading } = useQuery({
         queryKey: ['organs-public'],
-        queryFn: getOrgans,
+        queryFn: getOrgansPublic,
     });
 
     const activeOrgans = organs.filter(o => o.status === 'ativo');
