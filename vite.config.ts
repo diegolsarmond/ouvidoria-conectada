@@ -11,6 +11,34 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      '/auth': {
+        target: 'https://apiouvidoria.quantumtecnologia.com.br',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/rest': {
+        target: 'https://apiouvidoria.quantumtecnologia.com.br',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/storage': {
+        target: 'https://apiouvidoria.quantumtecnologia.com.br',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/realtime': {
+        target: 'https://apiouvidoria.quantumtecnologia.com.br',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
+      '/functions': {
+        target: 'https://apiouvidoria.quantumtecnologia.com.br',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

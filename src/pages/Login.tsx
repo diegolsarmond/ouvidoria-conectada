@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { ROLE_LABELS, UserRole } from '@/types/ouvidoria';
 import { useAuth } from '@/contexts/AuthContext';
 import { NetworkErrorBanner } from '@/components/NetworkErrorBanner';
@@ -177,34 +177,32 @@ const Login = () => {
       <NetworkErrorBanner />
       <div className="min-h-screen flex">
         {/* Left panel - branding */}
-        <div className="hidden lg:flex lg:w-1/2 login-gradient items-center justify-center p-12 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-20 left-20 w-64 h-64 border border-primary-foreground/20 rounded-full" />
-            <div className="absolute bottom-32 right-16 w-96 h-96 border border-primary-foreground/20 rounded-full" />
-            <div className="absolute top-1/2 left-1/3 w-48 h-48 border border-primary-foreground/20 rounded-full" />
+        <div className="hidden lg:flex lg:w-1/2 bg-white border-r border-border items-center justify-center p-12 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute top-20 left-20 w-64 h-64 border border-primary rounded-full" />
+            <div className="absolute bottom-32 right-16 w-96 h-96 border border-primary rounded-full" />
+            <div className="absolute top-1/2 left-1/3 w-48 h-48 border border-primary rounded-full" />
           </div>
-          <div className="relative z-10 text-primary-foreground max-w-lg">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-14 h-14 rounded-xl bg-primary-foreground/15 backdrop-blur-sm flex items-center justify-center">
-                <Shield className="w-8 h-8" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Ouvidoria</h1>
-                <p className="text-sm opacity-80 font-medium"></p>
-              </div>
+          <div className="relative z-10 max-w-lg flex flex-col items-start">
+            {/* Logo maior e levemente elevada */}
+            <div className="-mt-8 mb-6">
+              <img
+                src="/Logo_dataprev_Preferencial-01.png"
+                alt="Dataprev"
+                className="h-56 object-contain"
+              />
             </div>
-            <h2 className="text-2xl font-semibold mb-4 leading-tight">
-              Sistema de Gestão de Demandas da Ouvidoria
-            </h2>
-            <p className="text-primary-foreground/70 leading-relaxed">
+            {/* Título de impacto */}
+            <h1 className="text-5xl font-extrabold leading-tight mb-3 tracking-tight">
+              <span className="text-foreground">Ouvidoria</span><span style={{color:'#FFCC00'}}>IA</span>
+              <br />
+              <span className="text-primary">Dataprev</span>
+            </h1>
+            <div className="w-16 h-1 rounded-full mb-5" style={{background:'#FFCC00'}} />
+            <p className="text-muted-foreground leading-relaxed text-base">
               Plataforma integrada para registro, acompanhamento e resolução de manifestações dos cidadãos.
               Transparência e eficiência no atendimento público.
             </p>
-            <div className="mt-12 grid grid-cols-3 gap-6">
-
-
-
-            </div>
           </div>
         </div>
 
@@ -212,14 +210,12 @@ const Login = () => {
         <div className="flex-1 flex items-center justify-center p-6 bg-background overflow-y-auto">
           <div className="w-full max-w-md">
             {/* Mobile logo */}
-            <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-                <Shield className="w-7 h-7 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Ouvidoria</h1>
-                <p className="text-xs text-muted-foreground">Municipal</p>
-              </div>
+            <div className="lg:hidden flex items-center justify-center mb-8">
+              <img
+                src="/Logo_dataprev_Preferencial-01.png"
+                alt="Dataprev"
+                className="h-12 object-contain"
+              />
             </div>
 
             <div className="mb-6">
@@ -258,7 +254,7 @@ const Login = () => {
                       <Input
                         id="email"
                         type="email"
-                        placeholder="seu.email@prefeitura.gov.br"
+                        placeholder="seu.email@dataprev.com.br"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         autoComplete="username"

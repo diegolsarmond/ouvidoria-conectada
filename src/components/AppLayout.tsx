@@ -6,7 +6,6 @@ import {
   Building2,
   Users,
   Link2,
-  Shield,
   LogOut,
   Menu,
   X,
@@ -66,15 +65,15 @@ const AppLayout = () => {
           )}
         >
           {/* Logo */}
-          <div className="p-5 flex items-center gap-3 border-b border-sidebar-border">
-            <div className="w-10 h-10 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-sidebar-primary" />
+          <div className="px-4 py-4 flex items-center justify-between border-b border-sidebar-border relative">
+            <div className="bg-white rounded-xl px-4 py-2 flex items-center justify-center w-full shadow-sm">
+              <img
+                src="/Captura de tela 2026-04-07 151853.png"
+                alt="Dataprev"
+                className="h-10 object-contain w-full"
+              />
             </div>
-            <div>
-              <h1 className="font-bold text-sm text-sidebar-foreground">Ouvidoria</h1>
-              <p className="text-[10px] text-sidebar-foreground/60">Municipal</p>
-            </div>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-auto text-sidebar-foreground/60">
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute right-4 text-sidebar-foreground/60 bg-sidebar rounded-md p-1">
               <X className="w-5 h-5" />
             </button>
           </div>
