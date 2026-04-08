@@ -194,7 +194,7 @@ const Login = () => {
             </div>
             {/* Título de impacto */}
             <h1 className="text-5xl font-extrabold leading-tight mb-3 tracking-tight">
-              <span className="text-foreground">Ouvidoria</span><span style={{color:'#FFCC00'}}>IA</span>
+              <span className="text-foreground">Ouvidor</span><span style={{color:'#FFCC00'}}>IA</span>
               <br />
               <span className="text-primary">Dataprev</span>
             </h1>
