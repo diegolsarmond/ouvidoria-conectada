@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createOrgan, updateOrgan } from '@/lib/api';
+import { createOrgan, updateOrgan, logAudit } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Organ } from '@/types/ouvidoria';
 
 interface Props {
@@ -25,6 +26,7 @@ const emptyForm = { name: '', acronym: '', email: '', status: 'ativo' as 'ativo'
 
 export function OrgaoModal({ open, onOpenChange, organ }: Props) {
     const queryClient = useQueryClient();
+    const { profile } = useAuth();
     const isEdit = !!organ;
     const [form, setForm] = useState(emptyForm);
 
@@ -44,8 +46,19 @@ export function OrgaoModal({ open, onOpenChange, organ }: Props) {
 
     const createMutation = useMutation({
         mutationFn: () => createOrgan(form),
-        onSuccess: () => {
+        onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['organs'] });
+            logAudit({
+                action: 'create_organ',
+                entityType: 'organ',
+                entityId: created.id,
+                entityName: created.acronym,
+                userId: profile?.id,
+                userName: profile?.name,
+                userRole: profile?.role,
+                description: `Órgão ${created.name} (${created.acronym}) criado`,
+                newValues: { name: created.name, acronym: created.acronym, status: created.status },
+            });
             toast.success('Órgão cadastrado com sucesso!');
             onOpenChange(false);
         },
@@ -54,8 +67,20 @@ export function OrgaoModal({ open, onOpenChange, organ }: Props) {
 
     const updateMutation = useMutation({
         mutationFn: () => updateOrgan(organ!.id, form),
-        onSuccess: () => {
+        onSuccess: (updated) => {
             queryClient.invalidateQueries({ queryKey: ['organs'] });
+            logAudit({
+                action: 'update_organ',
+                entityType: 'organ',
+                entityId: updated.id,
+                entityName: updated.acronym,
+                userId: profile?.id,
+                userName: profile?.name,
+                userRole: profile?.role,
+                description: `Órgão ${updated.name} (${updated.acronym}) atualizado`,
+                oldValues: { name: organ!.name, status: organ!.status },
+                newValues: { name: updated.name, status: updated.status },
+            });
             toast.success('Órgão atualizado com sucesso!');
             onOpenChange(false);
         },

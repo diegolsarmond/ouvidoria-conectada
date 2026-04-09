@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { createUser, updateUser, getOrgans } from '@/lib/api';
+import { createUser, updateUser, getOrgans, logAudit } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS, type UserRole, type User } from '@/types/ouvidoria';
 
 interface Props {
@@ -30,6 +31,7 @@ const emptyForm = {
 
 export function UsuarioModal({ open, onOpenChange, user }: Props) {
     const queryClient = useQueryClient();
+    const { profile: currentUser } = useAuth();
     const isEdit = !!user;
     const { data: organs = [] } = useQuery({ queryKey: ['organs'], queryFn: getOrgans });
     const [form, setForm] = useState(emptyForm);
@@ -59,8 +61,19 @@ export function UsuarioModal({ open, onOpenChange, user }: Props) {
 
     const createMutation = useMutation({
         mutationFn: () => createUser({ ...form, password: form.password || undefined }),
-        onSuccess: () => {
+        onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
+            logAudit({
+                action: 'create_user',
+                entityType: 'user',
+                entityId: created.id,
+                entityName: created.name,
+                userId: currentUser?.id,
+                userName: currentUser?.name,
+                userRole: currentUser?.role,
+                description: `Usuário ${created.name} criado com perfil ${ROLE_LABELS[created.role] ?? created.role}`,
+                newValues: { name: created.name, email: created.email, role: created.role, status: created.status },
+            });
             toast.success('Usuário cadastrado com sucesso!');
             onOpenChange(false);
         },
@@ -69,8 +82,22 @@ export function UsuarioModal({ open, onOpenChange, user }: Props) {
 
     const updateMutation = useMutation({
         mutationFn: () => updateUser(user!.id, { ...form, password: form.password || undefined }),
-        onSuccess: () => {
+        onSuccess: (updated) => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
+            logAudit({
+                action: form.password ? 'update_user_password' : 'update_user',
+                entityType: 'user',
+                entityId: updated.id,
+                entityName: updated.name,
+                userId: currentUser?.id,
+                userName: currentUser?.name,
+                userRole: currentUser?.role,
+                description: form.password
+                    ? `Senha redefinida para usuário ${updated.name}`
+                    : `Usuário ${updated.name} atualizado`,
+                oldValues: { role: user!.role, status: user!.status },
+                newValues: { role: updated.role, status: updated.status },
+            });
             toast.success('Usuário atualizado com sucesso!' + (form.password ? ' Senha redefinida.' : ''));
             onOpenChange(false);
         },

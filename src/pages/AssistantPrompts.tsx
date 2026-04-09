@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Save, Sparkles } from 'lucide-react';
-import { getAssistantPrompts, updateAssistantPrompts } from '@/lib/api';
+import { getAssistantPrompts, updateAssistantPrompts, logAudit } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { AssistantPrompts } from '@/types/ouvidoria';
 
 const AssistantPromptsPage = () => {
     const queryClient = useQueryClient();
+    const { profile } = useAuth();
     const [activeTab, setActiveTab] = useState<string>('orquestrador');
     const [promptsContent, setPromptsContent] = useState<Partial<AssistantPrompts>>({});
 
@@ -30,8 +32,20 @@ const AssistantPromptsPage = () => {
             if (!prompts?.id) throw new Error('ID do registro não encontrado');
             return updateAssistantPrompts(prompts.id, updates);
         },
-        onSuccess: () => {
+        onSuccess: (_, updates) => {
             queryClient.invalidateQueries({ queryKey: ['assistant-prompts'] });
+            const slug = Object.keys(updates)[0];
+            logAudit({
+                action: 'update_prompts',
+                entityType: 'prompt',
+                entityId: prompts?.id,
+                entityName: slug,
+                userId: profile?.id,
+                userName: profile?.name,
+                userRole: profile?.role,
+                description: `Prompt "${slug}" atualizado`,
+                newValues: { slug },
+            });
             toast.success('Prompt atualizado com sucesso!');
         },
         onError: (error: any) => {

@@ -15,6 +15,7 @@ import Orgaos from "./pages/Orgaos";
 import Usuarios from "./pages/Usuarios";
 import Vinculos from "./pages/Vinculos";
 import AssistantPrompts from "./pages/AssistantPrompts";
+import AuditLogs from "./pages/AuditLogs";
 import NotFound from "./pages/NotFound";
 import NovaDemandaPublica from "./pages/NovaDemandaPublica";
 
@@ -48,6 +49,7 @@ const App = () => (
                 <Route path="/usuarios" element={<Usuarios />} />
                 <Route path="/vinculos" element={<Vinculos />} />
                 <Route path="/assistant-prompts" element={<AssistantPrompts />} />
+                <Route path="/audit-logs" element={<AuditLogs />} />
               </Route>
             </Route>
             <Route path="/nova-demanda" element={<NovaDemandaPublica />} />

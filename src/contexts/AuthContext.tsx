@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@/types/ouvidoria';
+import { logAudit } from '@/lib/api';
 
 interface AuthContextType {
     session: Session | null;
@@ -266,8 +267,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            // Registrar tentativa de login malsucedida
+            logAudit({
+                action: 'login_failure',
+                entityType: 'auth',
+                description: `Tentativa de login falhou para o email: ${email}`,
+                newValues: { email, reason: error.message },
+            });
+            throw error;
+        }
+        // Registrar login bem-sucedido (após buscar o perfil)
+        if (data.user) {
+            const { data: profileData } = await supabase
+                .from('users')
+                .select('name, role')
+                .eq('id', data.user.id)
+                .maybeSingle();
+            logAudit({
+                action: 'login',
+                entityType: 'auth',
+                entityId: data.user.id,
+                entityName: profileData?.name ?? email,
+                userId: data.user.id,
+                userName: profileData?.name ?? email,
+                userRole: profileData?.role ?? undefined,
+                description: `Login realizado por ${profileData?.name ?? email}`,
+            });
+        }
     };
 
     const signUp = async (data: SignUpData) => {
@@ -303,6 +331,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signOut = async () => {
+        // Registrar logout antes de limpar o estado
+        const currentProfile = profileRef.current;
+        if (currentProfile) {
+            logAudit({
+                action: 'logout',
+                entityType: 'auth',
+                entityId: currentProfile.id,
+                entityName: currentProfile.name,
+                userId: currentProfile.id,
+                userName: currentProfile.name,
+                userRole: currentProfile.role,
+                description: `Logout realizado por ${currentProfile.name}`,
+            });
+        }
         clearAll();
         try {
             // Use 'global' scope to sign out from all tabs/devices

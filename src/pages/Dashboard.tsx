@@ -1,15 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import {
   FileText,
   Clock,
   CheckCircle2,
   AlertTriangle,
+  BellRing,
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
+  Filter,
+  X,
 } from 'lucide-react';
 import { DEMAND_STATUS_LABELS, DEMAND_TYPE_LABELS, PRIORITY_LABELS } from '@/types/ouvidoria';
 import { useNavigate } from 'react-router-dom';
@@ -38,12 +43,12 @@ const priorityClass = (priority: string) => {
 };
 
 const deadlineClass = (days: number) => {
-  if (days <= 0) return 'deadline-danger font-semibold';
+  if (days < 0) return 'deadline-danger font-semibold';
   if (days <= 3) return 'deadline-warning font-medium';
   return 'deadline-ok';
 };
 
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
@@ -61,19 +66,60 @@ const Dashboard = () => {
     queryFn: getDemands,
   });
 
-  const demands = rawDemands.filter((d) => {
-    if (profile?.role === 'gestor_orgao' || profile?.role === 'ouvidor') {
-      const isMyOrgan = d.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(d.organId));
-      if (!isMyOrgan) return false;
-    }
-    return true;
-  });
+  const [periodFilter, setPeriodFilter] = useState('todos');
+  const [organFilter, setOrganFilter] = useState('todos');
+  const [categoryFilter, setCategoryFilter] = useState('todos');
+  const [statusFilter, setStatusFilter] = useState('todos');
+
+  const demands = useMemo(() => {
+    return rawDemands.filter((d) => {
+      // Role filter
+      if (profile?.role === 'gestor_orgao' || profile?.role === 'ouvidor') {
+        const isMyOrgan = d.organId === profile.primaryOrganId || (profile.organs && profile.organs.includes(d.organId));
+        if (!isMyOrgan) return false;
+      }
+      
+      // Additional Filters
+      if (organFilter !== 'todos' && d.organId !== organFilter) return false;
+      if (categoryFilter !== 'todos' && d.type !== categoryFilter) return false;
+      if (statusFilter !== 'todos' && d.status !== statusFilter) return false;
+
+      if (periodFilter !== 'todos') {
+        const demandDate = new Date(d.createdAt);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - demandDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (periodFilter === '7d' && diffDays > 7) return false;
+        if (periodFilter === '30d' && diffDays > 30) return false;
+        if (periodFilter === 'mes') {
+          if (demandDate.getMonth() !== now.getMonth() || demandDate.getFullYear() !== now.getFullYear()) return false;
+        }
+        if (periodFilter === 'ano') {
+          if (demandDate.getFullYear() !== now.getFullYear()) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [rawDemands, profile, periodFilter, organFilter, categoryFilter, statusFilter]);
+
+  const uniqueOrgans = useMemo(() => {
+    const map = new Map<string, string>();
+    rawDemands.forEach(d => {
+      if (d.organId && d.organName) {
+        map.set(d.organId, d.organName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [rawDemands]);
 
   // Compute live KPIs from real data
   const totalDemands = demands.length;
   const emAndamento = demands.filter(d => ['em_analise', 'em_atendimento'].includes(d.status)).length;
   const concluidas = demands.filter(d => d.status === 'concluida').length;
-  const prazoVencido = demands.filter(d => d.daysRemaining <= 0 && d.status !== 'concluida' && d.status !== 'cancelada').length;
+  const prazoVencido = demands.filter(d => d.daysRemaining < 0 && d.status !== 'concluida' && d.status !== 'cancelada').length;
+  const proximasVencimento = demands.filter(d => d.daysRemaining >= 0 && d.daysRemaining <= 3 && d.status !== 'concluida' && d.status !== 'cancelada').length;
 
   const kpis = [
     {
@@ -91,11 +137,11 @@ const Dashboard = () => {
       bg: 'bg-status-analysis/10',
     },
     {
-      title: 'Concluídas',
-      value: String(concluidas),
-      icon: CheckCircle2,
-      accent: 'text-status-completed',
-      bg: 'bg-status-completed/10',
+      title: 'Vence em Breve',
+      value: String(proximasVencimento),
+      icon: BellRing,
+      accent: 'text-yellow-600 dark:text-yellow-500',
+      bg: 'bg-yellow-600/10 dark:bg-yellow-500/10',
     },
     {
       title: 'Prazo Vencido',
@@ -103,6 +149,13 @@ const Dashboard = () => {
       icon: AlertTriangle,
       accent: 'text-destructive',
       bg: 'bg-destructive/10',
+    },
+    {
+      title: 'Concluídas',
+      value: String(concluidas),
+      icon: CheckCircle2,
+      accent: 'text-status-completed',
+      bg: 'bg-status-completed/10',
     },
   ];
 
@@ -141,10 +194,80 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Visão geral das demandas da Ouvidoria</p>
+      {/* Header and Filters */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground text-sm">Visão geral das demandas da Ouvidoria</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={periodFilter} onValueChange={setPeriodFilter}>
+            <SelectTrigger className="w-[140px] h-9 text-sm">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os períodos</SelectItem>
+              <SelectItem value="7d">Últimos 7 dias</SelectItem>
+              <SelectItem value="30d">Últimos 30 dias</SelectItem>
+              <SelectItem value="mes">Este mês</SelectItem>
+              <SelectItem value="ano">Este ano</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={organFilter} onValueChange={setOrganFilter}>
+            <SelectTrigger className="w-[180px] h-9 text-sm">
+              <SelectValue placeholder="Órgão" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os órgãos</SelectItem>
+              {uniqueOrgans.map(o => (
+                <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as categorias</SelectItem>
+              {Object.entries(DEMAND_TYPE_LABELS).map(([key, label]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os status</SelectItem>
+              {Object.entries(DEMAND_STATUS_LABELS).map(([key, label]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(periodFilter !== 'todos' || organFilter !== 'todos' || categoryFilter !== 'todos' || statusFilter !== 'todos') && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setPeriodFilter('todos');
+                setOrganFilter('todos');
+                setCategoryFilter('todos');
+                setStatusFilter('todos');
+              }}
+              className="h-9 px-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Limpar
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -154,7 +277,7 @@ const Dashboard = () => {
       ) : (
         <>
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {kpis.map((kpi) => (
               <Card key={kpi.title} className="border shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-5">
@@ -211,7 +334,14 @@ const Dashboard = () => {
                           <Badge variant="secondary" className="text-xs font-medium">{d.organName}</Badge>
                         </td>
                         <td className={`px-5 py-3 text-xs ${deadlineClass(d.daysRemaining)}`}>
-                          {d.daysRemaining <= 0 ? `${Math.abs(d.daysRemaining)}d atrasado` : `${d.daysRemaining}d restantes`}
+                          <div className="flex items-center gap-1.5">
+                            {d.daysRemaining < 0 && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                            {d.daysRemaining >= 0 && d.daysRemaining <= 3 && <BellRing className="w-4 h-4 text-yellow-600 dark:text-yellow-500" />}
+                            {d.daysRemaining > 3 && <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-500" />}
+                            <span>
+                              {d.daysRemaining < 0 ? `${Math.abs(d.daysRemaining)}d atrasado` : d.daysRemaining === 0 ? 'Vence hoje' : `${d.daysRemaining}d restantes`}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-5 py-3">
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(d.status)}`}>

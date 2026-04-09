@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createDemand, updateDemand, getOrgans } from '@/lib/api';
+import { createDemand, updateDemand, getOrgans, logAudit } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import {
     DEMAND_TYPE_LABELS,
     DEMAND_STATUS_LABELS,
@@ -36,6 +37,7 @@ const emptyForm = {
 
 export function DemandaModal({ open, onOpenChange, demand }: Props) {
     const queryClient = useQueryClient();
+    const { profile } = useAuth();
     const isEdit = !!demand;
     const { data: organs = [] } = useQuery({ queryKey: ['organs'], queryFn: getOrgans });
     const [form, setForm] = useState(emptyForm);
@@ -63,8 +65,19 @@ export function DemandaModal({ open, onOpenChange, demand }: Props) {
 
     const createMutation = useMutation({
         mutationFn: () => createDemand(form),
-        onSuccess: () => {
+        onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['demands'] });
+            logAudit({
+                action: 'create_demand',
+                entityType: 'demand',
+                entityId: created.id,
+                entityName: created.protocol,
+                userId: profile?.id,
+                userName: profile?.name,
+                userRole: profile?.role,
+                description: `Demanda ${created.protocol} criada (${DEMAND_TYPE_LABELS[created.type] ?? created.type})`,
+                newValues: { type: created.type, priority: created.priority, organId: created.organId, status: created.status },
+            });
             toast.success('Demanda cadastrada com sucesso!');
             onOpenChange(false);
         },
@@ -86,9 +99,21 @@ export function DemandaModal({ open, onOpenChange, demand }: Props) {
             deadline: form.deadline,
             status: form.status,
         }),
-        onSuccess: () => {
+        onSuccess: (updated) => {
             queryClient.invalidateQueries({ queryKey: ['demands'] });
             queryClient.invalidateQueries({ queryKey: ['demand', demand!.id] });
+            logAudit({
+                action: 'update_demand',
+                entityType: 'demand',
+                entityId: updated.id,
+                entityName: updated.protocol,
+                userId: profile?.id,
+                userName: profile?.name,
+                userRole: profile?.role,
+                description: `Demanda ${updated.protocol} editada`,
+                oldValues: { type: demand!.type, priority: demand!.priority, status: demand!.status },
+                newValues: { type: updated.type, priority: updated.priority, status: updated.status },
+            });
             toast.success('Demanda atualizada com sucesso!');
             onOpenChange(false);
         },

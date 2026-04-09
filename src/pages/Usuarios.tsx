@@ -12,7 +12,7 @@ import { Search, Plus, Pencil, KeyRound, Loader2, Eye, EyeOff } from 'lucide-rea
 import { toast } from 'sonner';
 import { ROLE_LABELS } from '@/types/ouvidoria';
 import type { User } from '@/types/ouvidoria';
-import { getUsers, getOrgans, resetUserPassword } from '@/lib/api';
+import { getUsers, getOrgans, resetUserPassword, logAudit } from '@/lib/api';
 import { UsuarioModal } from '@/components/modals/NovoUsuarioModal';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -44,7 +44,18 @@ const Usuarios = () => {
   const resetPwMutation = useMutation({
     mutationFn: ({ userId, password }: { userId: string; password: string }) =>
       resetUserPassword(userId, password),
-    onSuccess: () => {
+    onSuccess: (_, { userId }) => {
+      const targetUser = users.find((u) => u.id === userId);
+      logAudit({
+        action: 'reset_password',
+        entityType: 'user',
+        entityId: userId,
+        entityName: targetUser?.name,
+        userId: profile?.id,
+        userName: profile?.name,
+        userRole: profile?.role,
+        description: `Senha redefinida pelo administrador para usuário ${targetUser?.name ?? userId}`,
+      });
       toast.success('Senha redefinida com sucesso!');
       setResetPwOpen(false);
       setNewPassword('');

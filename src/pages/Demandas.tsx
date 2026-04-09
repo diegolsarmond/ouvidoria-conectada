@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Paperclip, Eye, Loader2, Pencil, RotateCcw } from 'lucide-react';
+import { Search, Plus, Paperclip, Eye, Loader2, Pencil, RotateCcw, TrendingUp } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
   DEMAND_TYPE_LABELS,
@@ -22,7 +22,8 @@ import {
   DemandPriority,
 } from '@/types/ouvidoria';
 import type { Demand } from '@/types/ouvidoria';
-import { getDemands, updateDemand, addDemandHistory } from '@/lib/api';
+import { getDemands, updateDemand, addDemandHistory, logAudit } from '@/lib/api';
+import { calcScore, getScoreBand, SCORE_BAND_CLASS, scoreTooltip } from '@/lib/priorityScore';
 import { DemandaModal } from '@/components/modals/NovaDemandaModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -88,6 +89,7 @@ const Demandas = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [sortByScore, setSortByScore] = useState(false);
 
   const { data: demands = [], isLoading } = useQuery({
     queryKey: ['demands'],
@@ -126,6 +128,20 @@ const Demandas = () => {
     return true;
   });
 
+  // Calcula scores uma única vez por render e ordena se solicitado
+  const scoreMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof calcScore>>();
+    filtered.forEach((d) => map.set(d.id, calcScore(d)));
+    return map;
+  }, [filtered]);
+
+  const displayList = useMemo(() =>
+    sortByScore
+      ? [...filtered].sort((a, b) => (scoreMap.get(b.id)?.total ?? 0) - (scoreMap.get(a.id)?.total ?? 0))
+      : filtered,
+    [filtered, sortByScore, scoreMap],
+  );
+
   const openCreate = () => { setEditingDemand(null); setModalOpen(true); };
   const openEdit = (demand: Demand) => { setEditingDemand(demand); setModalOpen(true); };
 
@@ -148,6 +164,19 @@ const Demandas = () => {
         userId: profile.id,
         fromStatus: oldStatus,
         toStatus: newStatus,
+      });
+
+      logAudit({
+        action: 'reopen_demand',
+        entityType: 'demand',
+        entityId: demand.id,
+        entityName: demand.protocol,
+        userId: profile.id,
+        userName: profile.name,
+        userRole: profile.role,
+        description: `Demanda ${demand.protocol} reaberta (status anterior: ${DEMAND_STATUS_LABELS[oldStatus]})`,
+        oldValues: { status: oldStatus },
+        newValues: { status: newStatus },
       });
 
       queryClient.invalidateQueries({ queryKey: ['demands'] });
@@ -224,6 +253,16 @@ const Demandas = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              variant={sortByScore ? 'default' : 'outline'}
+              size="sm"
+              className="gap-1.5 whitespace-nowrap"
+              onClick={() => setSortByScore((v) => !v)}
+              title="Ordenar pela criticidade calculada automaticamente"
+            >
+              <TrendingUp className="w-4 h-4" />
+              Score
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -248,12 +287,22 @@ const Demandas = () => {
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Prazo</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Prioridade</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+                        <button
+                          className="flex items-center gap-1 hover:text-foreground transition-colors"
+                          onClick={() => setSortByScore((v) => !v)}
+                          title="Clique para ordenar por score"
+                        >
+                          <TrendingUp className={`w-3.5 h-3.5 ${sortByScore ? 'text-primary' : ''}`} />
+                          Score
+                        </button>
+                      </th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Responsável</th>
                       <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((d) => (
+                    {displayList.map((d) => (
                       <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-mono font-medium text-foreground">
                           <div className="flex items-center gap-2">
@@ -283,6 +332,20 @@ const Demandas = () => {
                         </td>
                         <td className={`px-4 py-3 text-xs font-medium ${priorityClass(d.priority)}`}>
                           {PRIORITY_LABELS[d.priority]}
+                        </td>
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const s = scoreMap.get(d.id)!;
+                            const band = getScoreBand(s.total);
+                            return (
+                              <span
+                                className={`inline-flex items-center font-semibold text-xs px-2 py-0.5 rounded-full ${SCORE_BAND_CLASS[band]}`}
+                                title={scoreTooltip(s)}
+                              >
+                                {s.total}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-xs">
                           {d.assignedToName || '—'}
@@ -332,7 +395,7 @@ const Demandas = () => {
                   </tbody>
                 </table>
               </div>
-              {filtered.length === 0 && (
+              {displayList.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                   Nenhuma demanda encontrada com os filtros selecionados.
                 </div>

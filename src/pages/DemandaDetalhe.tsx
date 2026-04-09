@@ -53,7 +53,9 @@ import {
   updateDemand,
   getOrgans,
   getUsers,
+  logAudit,
 } from '@/lib/api';
+import { calcScore, getScoreBand, SCORE_BAND_CLASS, SCORE_BAND_LABEL, scoreTooltip } from '@/lib/priorityScore';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -317,6 +319,19 @@ const DemandaDetalhe = () => {
         toStatus: newStatus,
       });
 
+      logAudit({
+        action: 'generate_response',
+        entityType: 'demand',
+        entityId: demand.id,
+        entityName: demand.protocol,
+        userId: profile.id,
+        userName: profile.name,
+        userRole: profile.role,
+        description: `Resposta enviada para demanda ${demand.protocol} — classificação: ${CLASSIFICACAO_LABELS[respostaClassificacao] || respostaClassificacao}`,
+        oldValues: { status: oldStatus },
+        newValues: { status: newStatus, classificacao: respostaClassificacao },
+      });
+
       queryClient.invalidateQueries({ queryKey: ['demand', id] });
       queryClient.invalidateQueries({ queryKey: ['demand-history', id] });
       queryClient.invalidateQueries({ queryKey: ['demands'] });
@@ -360,6 +375,19 @@ const DemandaDetalhe = () => {
         toStatus: newStatus,
       });
 
+      logAudit({
+        action: 'forward_demand',
+        entityType: 'demand',
+        entityId: demand.id,
+        entityName: demand.protocol,
+        userId: profile.id,
+        userName: profile.name,
+        userRole: profile.role,
+        description: `Demanda ${demand.protocol} encaminhada para ${targetOrgan?.acronym || 'outro órgão'}`,
+        oldValues: { organId: demand.organId, status: oldStatus },
+        newValues: { organId: encaminharOrganId, status: newStatus },
+      });
+
       queryClient.invalidateQueries({ queryKey: ['demand', id] });
       queryClient.invalidateQueries({ queryKey: ['demand-history', id] });
       queryClient.invalidateQueries({ queryKey: ['demands'] });
@@ -396,6 +424,19 @@ const DemandaDetalhe = () => {
         action: `Atribuição para ${targetUser?.name || 'usuário'}`,
         description: `Demanda atribuída para ${targetUser?.name || 'usuário'}.`,
         userId: profile.id,
+      });
+
+      logAudit({
+        action: 'assign_demand',
+        entityType: 'demand',
+        entityId: demand.id,
+        entityName: demand.protocol,
+        userId: profile.id,
+        userName: profile.name,
+        userRole: profile.role,
+        description: `Demanda ${demand.protocol} atribuída para ${targetUser?.name || 'usuário'}`,
+        oldValues: { assignedTo: demand.assignedTo ?? null },
+        newValues: { assignedTo: atribuirUserId, assignedToName: targetUser?.name },
       });
 
       queryClient.invalidateQueries({ queryKey: ['demand', id] });
@@ -459,6 +500,16 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
       const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
       if (generated) {
         setRespostaText(generated.trim());
+        logAudit({
+          action: 'generate_ai_response',
+          entityType: 'demand',
+          entityId: demand.id,
+          entityName: demand.protocol,
+          userId: profile?.id,
+          userName: profile?.name,
+          userRole: profile?.role,
+          description: `Resposta gerada por IA para demanda ${demand.protocol}`,
+        });
         toast({ title: 'Resposta gerada com sucesso!' });
       }
     } catch (err: any) {
@@ -522,6 +573,18 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
             <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${priorityClass(demand.priority)}`}>
               {PRIORITY_LABELS[demand.priority]}
             </span>
+            {(() => {
+              const s = calcScore(demand);
+              const band = getScoreBand(s.total);
+              return (
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${SCORE_BAND_CLASS[band]}`}
+                  title={scoreTooltip(s)}
+                >
+                  Score {s.total} · {SCORE_BAND_LABEL[band]}
+                </span>
+              );
+            })()}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {DEMAND_TYPE_LABELS[demand.type]} • {CHANNEL_LABELS[demand.channel]} • {demand.organName}

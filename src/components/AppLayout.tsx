@@ -11,6 +11,7 @@ import {
   X,
   Bell,
   Sparkles,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,7 @@ const navItems = [
   { path: '/usuarios', label: 'Usuários', icon: Users },
   { path: '/vinculos', label: 'Vínculos', icon: Link2 },
   { path: '/assistant-prompts', label: 'Prompt do Assistente', icon: Sparkles, adminOnly: true },
+  { path: '/audit-logs', label: 'Logs de Auditoria', icon: ClipboardList, adminOnly: true },
 ];
 
 const AppLayout = () => {

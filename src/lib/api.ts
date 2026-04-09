@@ -2,6 +2,106 @@ import { supabase } from './supabase';
 import { supabaseAdmin } from './supabase-admin';
 import type { Organ, User, Demand, DemandHistory, AssistantPrompts } from '@/types/ouvidoria';
 
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+export interface AuditLog {
+    id: string;
+    action: string;
+    entityType: string | null;
+    entityId: string | null;
+    entityName: string | null;
+    userId: string | null;
+    userName: string | null;
+    userRole: string | null;
+    description: string | null;
+    oldValues: Record<string, any> | null;
+    newValues: Record<string, any> | null;
+    createdAt: string;
+}
+
+export interface LogAuditInput {
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    entityName?: string;
+    userId?: string;
+    userName?: string;
+    userRole?: string;
+    description?: string;
+    oldValues?: Record<string, any>;
+    newValues?: Record<string, any>;
+}
+
+function mapAuditLog(row: any): AuditLog {
+    return {
+        id: row.id,
+        action: row.action,
+        entityType: row.entity_type ?? null,
+        entityId: row.entity_id ?? null,
+        entityName: row.entity_name ?? null,
+        userId: row.user_id ?? null,
+        userName: row.user_name ?? null,
+        userRole: row.user_role ?? null,
+        description: row.description ?? null,
+        oldValues: row.old_values ?? null,
+        newValues: row.new_values ?? null,
+        createdAt: row.created_at,
+    };
+}
+
+/** Registra uma ação no log de auditoria. Usa supabaseAdmin para ignorar RLS. */
+export async function logAudit(input: LogAuditInput): Promise<void> {
+    try {
+        await supabaseAdmin.from('audit_logs').insert({
+            action: input.action,
+            entity_type: input.entityType ?? null,
+            entity_id: input.entityId ?? null,
+            entity_name: input.entityName ?? null,
+            user_id: input.userId ?? null,
+            user_name: input.userName ?? null,
+            user_role: input.userRole ?? null,
+            description: input.description ?? null,
+            old_values: input.oldValues ?? null,
+            new_values: input.newValues ?? null,
+        });
+    } catch (err) {
+        // Nunca deixar falha de auditoria quebrar a operação principal
+        console.error('[Audit] Falha ao registrar log:', err);
+    }
+}
+
+export interface GetAuditLogsOptions {
+    limit?: number;
+    offset?: number;
+    action?: string;
+    entityType?: string;
+    userId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+}
+
+/** Busca logs de auditoria (somente admin). */
+export async function getAuditLogs(opts: GetAuditLogsOptions = {}): Promise<{ data: AuditLog[]; count: number }> {
+    let query = supabase
+        .from('audit_logs')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false });
+
+    if (opts.action) query = query.eq('action', opts.action);
+    if (opts.entityType) query = query.eq('entity_type', opts.entityType);
+    if (opts.userId) query = query.eq('user_id', opts.userId);
+    if (opts.dateFrom) query = query.gte('created_at', opts.dateFrom);
+    if (opts.dateTo) query = query.lte('created_at', opts.dateTo);
+
+    const pageLimit = opts.limit ?? 50;
+    const pageOffset = opts.offset ?? 0;
+    query = query.range(pageOffset, pageOffset + pageLimit - 1);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { data: (data ?? []).map(mapAuditLog), count: count ?? 0 };
+}
+
 // ─── Mappers (snake_case → camelCase) ─────────────────────────────────────────
 
 function mapOrgan(row: any): Organ {

@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(python3 -c \":*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(npm run:*)",
+      "Bash(grep -B 5 -A 5 \"recorrente\" /c/Users/Diego/Desktop/ouvidoria-conectada/database/*.sql)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
