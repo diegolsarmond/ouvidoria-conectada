@@ -163,7 +163,7 @@ export async function getDemandById(id: string): Promise<Demand | null> {
     let conversaAtiva = undefined;
     if (data.protocol) {
         const { data: convData } = await supabase
-            .from('conversas_ativas')
+            .from('demanda_whatsapp')
             .select('*')
             .eq('protocolo', data.protocol)
             .maybeSingle();
