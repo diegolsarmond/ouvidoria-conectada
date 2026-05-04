@@ -38,6 +38,7 @@ import {
   Lock,
   X,
   Sparkles,
+  FileUp,
 } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
@@ -205,6 +206,10 @@ const DemandaDetalhe = () => {
   // ─── Anexo (attachment) state ───────────────────────────────────────
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Knowledge base PDF state ────────────────────────────────────────
+  const [knowledgeBasePdf, setKnowledgeBasePdf] = useState<File | null>(null);
+  const knowledgeBasePdfRef = useRef<HTMLInputElement>(null);
 
   // ─── Derived: is demand closed? ─────────────────────────────────────
   const isClosed = demand?.status === 'respondida' || demand?.status === 'concluida' || demand?.status === 'cancelada';
@@ -467,7 +472,11 @@ const DemandaDetalhe = () => {
       ? history.map((h) => `- [${h.action}] ${h.description}`).join('\n')
       : 'Nenhum andamento registrado.';
 
-    const prompt = `Você é um assistente de ouvidoria pública. Com base nas informações abaixo, redija uma resposta formal, clara e empática ao cidadão, adequada para uma ouvidoria municipal/estadual. A resposta deve ser objetiva, informar o resultado do atendimento e encerrar de forma cordial.
+    const knowledgeBaseInstruction = knowledgeBasePdf
+      ? `\n\nVocê também tem acesso a um documento PDF de base de conhecimento (anexado abaixo). Use as informações relevantes desse documento para enriquecer e embasar a resposta ao cidadão.`
+      : '';
+
+    const prompt = `Você é um assistente de ouvidoria pública. Com base nas informações abaixo, redija uma resposta formal, clara e empática ao cidadão, adequada para uma ouvidoria municipal/estadual. A resposta deve ser objetiva, informar o resultado do atendimento e encerrar de forma cordial.${knowledgeBaseInstruction}
 
 **Tipo de manifestação:** ${tipoLabel}
 **Status atual:** ${statusLabel}
@@ -482,12 +491,27 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 
     setGeneratingResposta(true);
     try {
+      const parts: object[] = [{ text: prompt }];
+
+      if (knowledgeBasePdf) {
+        const pdfBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(knowledgeBasePdf);
+        });
+        parts.push({ inline_data: { mime_type: 'application/pdf', data: pdfBase64 } });
+      }
+
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts }],
         }),
       });
 
@@ -922,6 +946,40 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
                 <CardTitle className="text-sm font-semibold">Resposta ao Cidadão</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="flex items-center gap-2 p-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30">
+                  <input
+                    ref={knowledgeBasePdfRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => setKnowledgeBasePdf(e.target.files?.[0] || null)}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => knowledgeBasePdfRef.current?.click()}
+                  >
+                    <FileUp className="w-3.5 h-3.5" />
+                    Base de conhecimento (PDF)
+                  </Button>
+                  {knowledgeBasePdf ? (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground bg-background px-2 py-0.5 rounded border ml-auto">
+                      <FileText className="w-3 h-3 text-primary" />
+                      {knowledgeBasePdf.name}
+                      <button
+                        type="button"
+                        onClick={() => { setKnowledgeBasePdf(null); if (knowledgeBasePdfRef.current) knowledgeBasePdfRef.current.value = ''; }}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/60 ml-auto pr-1">Nenhum arquivo selecionado</span>
+                  )}
+                </div>
                 <div className="relative">
                   <Textarea
                     placeholder="Digite a resposta para o cidadão..."
