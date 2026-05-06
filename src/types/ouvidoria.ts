@@ -139,5 +139,6 @@ export interface AssistantPrompts {
   triagem: string;
   saudacao: string;
   baseConhecimento: string;
+  baseConhecimentoPdfUrl?: string | null;
   updatedAt: string;
 }

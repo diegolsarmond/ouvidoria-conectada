@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Save, Sparkles } from 'lucide-react';
-import { getAssistantPrompts, updateAssistantPrompts, logAudit } from '@/lib/api';
+import { Input } from '@/components/ui/input';
+import { Loader2, Save, Sparkles, Upload } from 'lucide-react';
+import { getAssistantPrompts, updateAssistantPrompts, upsertAssistantPrompts, uploadKnowledgeBasePdf, logAudit } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { AssistantPrompts } from '@/types/ouvidoria';
@@ -15,6 +16,7 @@ const AssistantPromptsPage = () => {
     const { profile } = useAuth();
     const [activeTab, setActiveTab] = useState<string>('orquestrador');
     const [promptsContent, setPromptsContent] = useState<Partial<AssistantPrompts>>({});
+    const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
     const { data: prompts, isLoading } = useQuery({
         queryKey: ['assistant-prompts'],
@@ -29,8 +31,11 @@ const AssistantPromptsPage = () => {
 
     const mutation = useMutation({
         mutationFn: (updates: Partial<AssistantPrompts>) => {
-            if (!prompts?.id) throw new Error('ID do registro não encontrado');
-            return updateAssistantPrompts(prompts.id, updates);
+            if (prompts?.id) {
+                return updateAssistantPrompts(prompts.id, updates);
+            }
+            // Nenhum registro existe ainda — cria o primeiro
+            return upsertAssistantPrompts(updates);
         },
         onSuccess: (_, updates) => {
             queryClient.invalidateQueries({ queryKey: ['assistant-prompts'] });
@@ -55,11 +60,29 @@ const AssistantPromptsPage = () => {
     });
 
     const handleSave = (slug: keyof AssistantPrompts) => {
-        if (!prompts) return;
-
         mutation.mutate({
             [slug]: promptsContent[slug],
         } as Partial<AssistantPrompts>);
+    };
+
+    const handlePdfUpload = async (file: File) => {
+        setIsUploadingPdf(true);
+        try {
+            const url = await uploadKnowledgeBasePdf(file);
+            // Salva a URL diretamente no banco
+            if (prompts?.id) {
+                await updateAssistantPrompts(prompts.id, { baseConhecimentoPdfUrl: url });
+            } else {
+                await upsertAssistantPrompts({ baseConhecimentoPdfUrl: url });
+            }
+            queryClient.invalidateQueries({ queryKey: ['assistant-prompts'] });
+            toast.success(`PDF "${file.name}" salvo com sucesso!`);
+        } catch (err: any) {
+            console.error('Erro no upload do PDF:', err);
+            toast.error('Erro ao fazer upload do PDF: ' + (err.message || 'Erro desconhecido'));
+        } finally {
+            setIsUploadingPdf(false);
+        }
     };
 
     const handleContentChange = (slug: keyof AssistantPrompts, content: string) => {
@@ -111,7 +134,8 @@ const AssistantPromptsPage = () => {
                 {promptTypes.map((type) => {
                     const originalContent = (prompts?.[type.slug] as string) || '';
                     const currentContent = (promptsContent[type.slug] as string) || '';
-                    const hasChanges = originalContent !== currentContent;
+                    // Habilita o botão se houve mudança OU se não existe registro ainda e há conteúdo
+                    const hasChanges = !prompts ? currentContent.length > 0 : originalContent !== currentContent;
 
                     return (
                         <TabsContent key={type.slug} value={type.slug} className="mt-6">
@@ -121,6 +145,48 @@ const AssistantPromptsPage = () => {
                                     <CardDescription>{type.description}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
+                                    {type.slug === 'baseConhecimento' && (
+                                        <div className="flex flex-col gap-2 pb-4 border-b border-border/50">
+                                            <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                                                <Upload className="w-4 h-4" />
+                                                Documento PDF (Base de Conhecimento)
+                                            </label>
+                                            <Input
+                                                type="file"
+                                                accept=".pdf,application/pdf"
+                                                disabled={isUploadingPdf}
+                                                className="cursor-pointer file:cursor-pointer"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) handlePdfUpload(file);
+                                                }}
+                                            />
+                                            {isUploadingPdf && (
+                                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    Enviando PDF...
+                                                </p>
+                                            )}
+                                            {prompts?.baseConhecimentoPdfUrl && !isUploadingPdf && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    PDF atual:{' '}
+                                                    <a
+                                                        href={prompts.baseConhecimentoPdfUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-primary underline hover:no-underline"
+                                                    >
+                                                        Visualizar arquivo salvo
+                                                    </a>
+                                                </p>
+                                            )}
+                                            {!prompts?.baseConhecimentoPdfUrl && !isUploadingPdf && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    Faça upload de um arquivo PDF com informações e diretrizes gerais.
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="flex flex-col gap-2">
                                         <label className="text-sm font-medium text-foreground">Instruções do Sistema (Prompt)</label>
                                         <Textarea

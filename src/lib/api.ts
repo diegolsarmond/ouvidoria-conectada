@@ -185,6 +185,7 @@ function mapAssistantPrompts(row: any): AssistantPrompts {
         triagem: row.triagem ?? '',
         saudacao: row.saudacao ?? '',
         baseConhecimento: row.base_conhecimento ?? '',
+        baseConhecimentoPdfUrl: row.base_conhecimento_pdf_url ?? null,
         updatedAt: row.updated_at,
     };
 }
@@ -675,11 +676,58 @@ export async function addDemandHistory(input: {
     return mapHistory(data);
 }
 
+function toSnakeCasePrompts(updates: Partial<AssistantPrompts>): Record<string, any> {
+    const map: Record<string, any> = {};
+    if (updates.orquestrador !== undefined) map.orquestrador = updates.orquestrador;
+    if (updates.cadastro !== undefined) map.cadastro = updates.cadastro;
+    if (updates.consulta !== undefined) map.consulta = updates.consulta;
+    if (updates.atendimento !== undefined) map.atendimento = updates.atendimento;
+    if (updates.triagem !== undefined) map.triagem = updates.triagem;
+    if (updates.saudacao !== undefined) map.saudacao = updates.saudacao;
+    if (updates.baseConhecimento !== undefined) map.base_conhecimento = updates.baseConhecimento;
+    if (updates.baseConhecimentoPdfUrl !== undefined) map.base_conhecimento_pdf_url = updates.baseConhecimentoPdfUrl;
+    return map;
+}
+
+/** Faz upload de um PDF para o Supabase Storage e retorna a URL pública do arquivo. */
+export async function uploadKnowledgeBasePdf(file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `base_conhecimento_${Date.now()}.${fileExt}`;
+    const bucketName = 'knowledge-base';
+
+    // Tenta criar o bucket se não existir (ignora erro se já existir)
+    await supabase.storage.createBucket(bucketName, { public: true }).catch(() => {});
+
+    const { error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, { upsert: true, contentType: 'application/pdf' });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+    return data.publicUrl;
+}
+
 export async function updateAssistantPrompts(id: string, updates: Partial<AssistantPrompts>): Promise<AssistantPrompts> {
+    const payload = toSnakeCasePrompts(updates);
+
     const { data, error } = await supabase
         .from('assistant_prompts')
-        .update(updates)
+        .update(payload)
         .eq('id', id)
+        .select('*')
+        .single();
+
+    if (error) throw error;
+    return mapAssistantPrompts(data);
+}
+
+export async function upsertAssistantPrompts(updates: Partial<AssistantPrompts>): Promise<AssistantPrompts> {
+    const payload = toSnakeCasePrompts(updates);
+
+    const { data, error } = await supabase
+        .from('assistant_prompts')
+        .upsert(payload, { onConflict: 'id' })
         .select('*')
         .single();
 

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -39,6 +40,8 @@ import {
   X,
   Sparkles,
   FileUp,
+  Upload,
+  IdCard,
 } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
@@ -210,6 +213,15 @@ const DemandaDetalhe = () => {
   // ─── Knowledge base PDF state ────────────────────────────────────────
   const [knowledgeBasePdf, setKnowledgeBasePdf] = useState<File | null>(null);
   const knowledgeBasePdfRef = useRef<HTMLInputElement>(null);
+
+  // ─── Situação do demandante (OCR) ────────────────────────────────────
+  const [demandanteNome, setDemandanteNome] = useState('');
+  const [demandanteCpf, setDemandanteCpf] = useState('');
+  const [demandanteDataNascimento, setDemandanteDataNascimento] = useState('');
+  const [demandanteSituacao, setDemandanteSituacao] = useState('');
+  const [ocrImage, setOcrImage] = useState<File | null>(null);
+  const [processingOcr, setProcessingOcr] = useState(false);
+  const ocrImageRef = useRef<HTMLInputElement>(null);
 
   // ─── Derived: is demand closed? ─────────────────────────────────────
   const isClosed = demand?.status === 'respondida' || demand?.status === 'concluida' || demand?.status === 'cancelada';
@@ -543,6 +555,59 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
     }
   };
 
+  const handleOcrProcess = async (file: File) => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
+      return;
+    }
+
+    setProcessingOcr(true);
+    try {
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const mimeType = file.type || 'image/jpeg';
+      const prompt = `Analise esta imagem e extraia as seguintes informações do demandante/cidadão. Retorne APENAS um JSON válido com as chaves: "nome", "cpf", "dataNascimento", "situacaoCidadao". Se não encontrar algum campo, retorne string vazia para ele. O campo dataNascimento deve estar no formato DD/MM/AAAA se encontrado. Exemplo: {"nome": "João da Silva", "cpf": "000.000.000-00", "dataNascimento": "01/01/1990", "situacaoCidadao": "Aposentado"}`;
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: imageBase64 } }] }],
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as any)?.error?.message || `Erro HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.nome) setDemandanteNome(parsed.nome);
+        if (parsed.cpf) setDemandanteCpf(parsed.cpf);
+        if (parsed.dataNascimento) setDemandanteDataNascimento(parsed.dataNascimento);
+        if (parsed.situacaoCidadao) setDemandanteSituacao(parsed.situacaoCidadao);
+        toast({ title: 'Dados extraídos com sucesso via OCR!' });
+      } else {
+        toast({ title: 'Não foi possível extrair dados da imagem.', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao processar imagem.', description: err.message, variant: 'destructive' });
+    } finally {
+      setProcessingOcr(false);
+    }
+  };
+
   // ─── Loading / not found ────────────────────────────────────────────
 
   if (loadingDemand) {
@@ -724,6 +789,93 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
                   {attachmentCount} anexo(s)
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Situação do Demandante */}
+          <Card className="border shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <IdCard className="w-4 h-4 text-muted-foreground" />
+                Situação do Demandante
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 p-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30">
+                <input
+                  ref={ocrImageRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setOcrImage(file);
+                    if (file) handleOcrProcess(file);
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => ocrImageRef.current?.click()}
+                  disabled={processingOcr}
+                >
+                  {processingOcr ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5" />
+                  )}
+                  {processingOcr ? 'Processando OCR com IA...' : 'Anexar imagem para leitura OCR com IA'}
+                </Button>
+                {ocrImage && !processingOcr && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-background px-2 py-0.5 rounded border ml-auto">
+                    <FileText className="w-3 h-3 text-primary" />
+                    {ocrImage.name}
+                    <button
+                      type="button"
+                      onClick={() => { setOcrImage(null); if (ocrImageRef.current) ocrImageRef.current.value = ''; }}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Nome</label>
+                  <Input
+                    placeholder="Nome do demandante"
+                    value={demandanteNome}
+                    onChange={(e) => setDemandanteNome(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CPF</label>
+                  <Input
+                    placeholder="000.000.000-00"
+                    value={demandanteCpf}
+                    onChange={(e) => setDemandanteCpf(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Nascimento</label>
+                  <Input
+                    placeholder="DD/MM/AAAA"
+                    value={demandanteDataNascimento}
+                    onChange={(e) => setDemandanteDataNascimento(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Situação do Cidadão</label>
+                  <Input
+                    placeholder="Ex: Aposentado, Empregado, Estudante..."
+                    value={demandanteSituacao}
+                    onChange={(e) => setDemandanteSituacao(e.target.value)}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
