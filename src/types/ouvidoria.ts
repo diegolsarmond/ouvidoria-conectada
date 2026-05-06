@@ -49,6 +49,10 @@ export interface Demand {
   deadline: string;
   daysRemaining: number;
   attachments?: number;
+  demandanteNome?: string;
+  demandanteCpf?: string;
+  demandanteDataNascimento?: string;
+  demandanteSituacao?: string;
   conversaAtiva?: ConversaAtiva;
 }
 

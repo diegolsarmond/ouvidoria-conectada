@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -221,7 +221,18 @@ const DemandaDetalhe = () => {
   const [demandanteSituacao, setDemandanteSituacao] = useState('');
   const [ocrImage, setOcrImage] = useState<File | null>(null);
   const [processingOcr, setProcessingOcr] = useState(false);
+  const [savingDemandante, setSavingDemandante] = useState(false);
   const ocrImageRef = useRef<HTMLInputElement>(null);
+
+  // Inicializa campos com dados existentes no banco
+  useEffect(() => {
+    if (demand) {
+      setDemandanteNome(demand.demandanteNome ?? '');
+      setDemandanteCpf(demand.demandanteCpf ?? '');
+      setDemandanteDataNascimento(demand.demandanteDataNascimento ?? '');
+      setDemandanteSituacao(demand.demandanteSituacao ?? '');
+    }
+  }, [demand?.id]);
 
   // ─── Derived: is demand closed? ─────────────────────────────────────
   const isClosed = demand?.status === 'respondida' || demand?.status === 'concluida' || demand?.status === 'cancelada';
@@ -593,11 +604,28 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.nome) setDemandanteNome(parsed.nome);
-        if (parsed.cpf) setDemandanteCpf(parsed.cpf);
-        if (parsed.dataNascimento) setDemandanteDataNascimento(parsed.dataNascimento);
-        if (parsed.situacaoCidadao) setDemandanteSituacao(parsed.situacaoCidadao);
-        toast({ title: 'Dados extraídos com sucesso via OCR!' });
+        const nome = parsed.nome || '';
+        const cpf = parsed.cpf || '';
+        const dataNascimento = parsed.dataNascimento || '';
+        const situacaoCidadao = parsed.situacaoCidadao || '';
+
+        if (nome) setDemandanteNome(nome);
+        if (cpf) setDemandanteCpf(cpf);
+        if (dataNascimento) setDemandanteDataNascimento(dataNascimento);
+        if (situacaoCidadao) setDemandanteSituacao(situacaoCidadao);
+
+        // Salva automaticamente no banco
+        if (demand) {
+          await updateDemand(demand.id, {
+            demandanteNome: nome || undefined,
+            demandanteCpf: cpf || undefined,
+            demandanteDataNascimento: dataNascimento || undefined,
+            demandanteSituacao: situacaoCidadao || undefined,
+          });
+          queryClient.invalidateQueries({ queryKey: ['demand', id] });
+        }
+
+        toast({ title: 'Dados extraídos e salvos com sucesso via OCR!' });
       } else {
         toast({ title: 'Não foi possível extrair dados da imagem.', variant: 'destructive' });
       }
@@ -605,6 +633,25 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
       toast({ title: 'Erro ao processar imagem.', description: err.message, variant: 'destructive' });
     } finally {
       setProcessingOcr(false);
+    }
+  };
+
+  const handleSalvarDemandante = async () => {
+    if (!demand) return;
+    setSavingDemandante(true);
+    try {
+      await updateDemand(demand.id, {
+        demandanteNome: demandanteNome || undefined,
+        demandanteCpf: demandanteCpf || undefined,
+        demandanteDataNascimento: demandanteDataNascimento || undefined,
+        demandanteSituacao: demandanteSituacao || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ['demand', id] });
+      toast({ title: 'Situação do demandante salva com sucesso!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao salvar.', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingDemandante(false);
     }
   };
 
@@ -876,6 +923,21 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
                   />
                 </div>
               </div>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  className="gap-1"
+                  onClick={handleSalvarDemandante}
+                  disabled={savingDemandante || processingOcr}
+                >
+                  {savingDemandante ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Send className="w-3 h-3" />
+                  )}
+                  Salvar
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -1098,40 +1160,6 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
                 <CardTitle className="text-sm font-semibold">Resposta ao Cidadão</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 p-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30">
-                  <input
-                    ref={knowledgeBasePdfRef}
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={(e) => setKnowledgeBasePdf(e.target.files?.[0] || null)}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => knowledgeBasePdfRef.current?.click()}
-                  >
-                    <FileUp className="w-3.5 h-3.5" />
-                    Base de conhecimento (PDF)
-                  </Button>
-                  {knowledgeBasePdf ? (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground bg-background px-2 py-0.5 rounded border ml-auto">
-                      <FileText className="w-3 h-3 text-primary" />
-                      {knowledgeBasePdf.name}
-                      <button
-                        type="button"
-                        onClick={() => { setKnowledgeBasePdf(null); if (knowledgeBasePdfRef.current) knowledgeBasePdfRef.current.value = ''; }}
-                        className="ml-1 hover:text-destructive"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/60 ml-auto pr-1">Nenhum arquivo selecionado</span>
-                  )}
-                </div>
                 <div className="relative">
                   <Textarea
                     placeholder="Digite a resposta para o cidadão..."

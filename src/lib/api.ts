@@ -159,6 +159,10 @@ function mapDemand(row: any): Demand {
         deadline: row.deadline,
         daysRemaining,
         attachments: row.attachments_count ?? undefined,
+        demandanteNome: row.demandante_nome ?? undefined,
+        demandanteCpf: row.demandante_cpf ?? undefined,
+        demandanteDataNascimento: row.demandante_data_nascimento ?? undefined,
+        demandanteSituacao: row.demandante_situacao ?? undefined,
     };
 }
 
@@ -624,6 +628,10 @@ export async function updateDemand(id: string, input: {
     citizenEmail?: string;
     assignedToId?: string | null;
     deadline?: string;
+    demandanteNome?: string;
+    demandanteCpf?: string;
+    demandanteDataNascimento?: string;
+    demandanteSituacao?: string;
 }): Promise<Demand> {
     const updatePayload: Record<string, any> = {};
     if (input.type !== undefined) updatePayload.type = input.type;
@@ -639,6 +647,10 @@ export async function updateDemand(id: string, input: {
     if (input.citizenEmail !== undefined) updatePayload.citizen_email = input.citizenEmail || null;
     if (input.assignedToId !== undefined) updatePayload.assigned_to_id = input.assignedToId;
     if (input.deadline !== undefined) updatePayload.deadline = input.deadline;
+    if (input.demandanteNome !== undefined) updatePayload.demandante_nome = input.demandanteNome || null;
+    if (input.demandanteCpf !== undefined) updatePayload.demandante_cpf = input.demandanteCpf || null;
+    if (input.demandanteDataNascimento !== undefined) updatePayload.demandante_data_nascimento = input.demandanteDataNascimento || null;
+    if (input.demandanteSituacao !== undefined) updatePayload.demandante_situacao = input.demandanteSituacao || null;
 
     const { data, error } = await supabase
         .from('demands')
