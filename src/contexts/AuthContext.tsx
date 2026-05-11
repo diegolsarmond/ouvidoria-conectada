@@ -81,7 +81,7 @@ async function fetchProfile(userId: string, timeoutMs = 8000): Promise<User | nu
 async function fetchProfileInner(userId: string): Promise<User | null> {
     try {
         const { data, error } = await supabase
-            .from('users')
+            .from('ouvidoria_users')
             .select('*')
             .eq('id', userId)
             .maybeSingle();
@@ -93,7 +93,7 @@ async function fetchProfileInner(userId: string): Promise<User | null> {
         if (!data) return null;
 
         const { data: uo } = await supabase
-            .from('user_organs')
+            .from('ouvidoria_user_organs')
             .select('organ_id')
             .eq('user_id', userId);
 
@@ -269,7 +269,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signIn = async (email: string, password: string) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-            // Registrar tentativa de login malsucedida
             logAudit({
                 action: 'login_failure',
                 entityType: 'auth',
@@ -278,22 +277,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             throw error;
         }
-        // Registrar login bem-sucedido (após buscar o perfil)
-        if (data.user) {
-            const { data: profileData } = await supabase
-                .from('users')
-                .select('name, role')
-                .eq('id', data.user.id)
-                .maybeSingle();
+        if (data.user && data.session) {
+            // Buscar perfil diretamente para detectar erros e definir sessão imediatamente
+            const p = await fetchProfile(data.user.id);
+            if (!p) {
+                await supabase.auth.signOut({ scope: 'local' }).catch(() => { });
+                throw new Error('Perfil não encontrado. Verifique se o usuário está cadastrado no sistema.');
+            }
+            setSession(data.session);
+            setSupabaseUser(data.user);
+            setProfile(p);
             logAudit({
                 action: 'login',
                 entityType: 'auth',
                 entityId: data.user.id,
-                entityName: profileData?.name ?? email,
+                entityName: p.name,
                 userId: data.user.id,
-                userName: profileData?.name ?? email,
-                userRole: profileData?.role ?? undefined,
-                description: `Login realizado por ${profileData?.name ?? email}`,
+                userName: p.name,
+                userRole: p.role,
+                description: `Login realizado por ${p.name}`,
             });
         }
     };
@@ -310,7 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!authUserId) throw new Error('Erro ao criar conta de autenticação.');
 
         const { error: profileError } = await supabase
-            .from('users')
+            .from('ouvidoria_users')
             .insert({
                 id: authUserId,
                 name: data.name,
