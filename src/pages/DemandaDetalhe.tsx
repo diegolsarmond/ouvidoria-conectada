@@ -219,6 +219,25 @@ const DemandaDetalhe = () => {
   const [demandanteCpf, setDemandanteCpf] = useState('');
   const [demandanteDataNascimento, setDemandanteDataNascimento] = useState('');
   const [demandanteSituacao, setDemandanteSituacao] = useState('');
+  const [demandanteSexo, setDemandanteSexo] = useState('');
+  const [demandanteNomeMae, setDemandanteNomeMae] = useState('');
+  const [demandanteExposicaoPolitica, setDemandanteExposicaoPolitica] = useState('');
+  // Vínculo empregatício
+  const [vinculoEmpregadorCnpj, setVinculoEmpregadorCnpj] = useState('');
+  const [vinculoEmpregadorNome, setVinculoEmpregadorNome] = useState('');
+  const [vinculoMatricula, setVinculoMatricula] = useState('');
+  const [vinculoDataAdmissao, setVinculoDataAdmissao] = useState('');
+  const [vinculoDataInicioAtividade, setVinculoDataInicioAtividade] = useState('');
+  const [vinculoBloqueio, setVinculoBloqueio] = useState('');
+  const [vinculoElegivel, setVinculoElegivel] = useState('');
+  const [vinculoMotivoInelegibilidade, setVinculoMotivoInelegibilidade] = useState('');
+  const [vinculoDataDesligamento, setVinculoDataDesligamento] = useState('');
+  const [vinculoMotivoDesligamento, setVinculoMotivoDesligamento] = useState('');
+  const [vinculoClassificacaoTributaria, setVinculoClassificacaoTributaria] = useState('');
+  const [vinculoCategoriaTrabalhador, setVinculoCategoriaTrabalhador] = useState('');
+  const [vinculoCnae, setVinculoCnae] = useState('');
+  const [vinculoCbo, setVinculoCbo] = useState('');
+  const [vinculoPeriodoReferencia, setVinculoPeriodoReferencia] = useState('');
   const [ocrImage, setOcrImage] = useState<File | null>(null);
   const [processingOcr, setProcessingOcr] = useState(false);
   const [savingDemandante, setSavingDemandante] = useState(false);
@@ -231,6 +250,24 @@ const DemandaDetalhe = () => {
       setDemandanteCpf(demand.demandanteCpf ?? '');
       setDemandanteDataNascimento(demand.demandanteDataNascimento ?? '');
       setDemandanteSituacao(demand.demandanteSituacao ?? '');
+      setDemandanteSexo(demand.demandanteSexo ?? '');
+      setDemandanteNomeMae(demand.demandanteNomeMae ?? '');
+      setDemandanteExposicaoPolitica(demand.demandanteExposicaoPolitica ?? '');
+      setVinculoEmpregadorCnpj(demand.vinculoEmpregadorCnpj ?? '');
+      setVinculoEmpregadorNome(demand.vinculoEmpregadorNome ?? '');
+      setVinculoMatricula(demand.vinculoMatricula ?? '');
+      setVinculoDataAdmissao(demand.vinculoDataAdmissao ?? '');
+      setVinculoDataInicioAtividade(demand.vinculoDataInicioAtividade ?? '');
+      setVinculoBloqueio(demand.vinculoBloqueio ?? '');
+      setVinculoElegivel(demand.vinculoElegivel ?? '');
+      setVinculoMotivoInelegibilidade(demand.vinculoMotivoInelegibilidade ?? '');
+      setVinculoDataDesligamento(demand.vinculoDataDesligamento ?? '');
+      setVinculoMotivoDesligamento(demand.vinculoMotivoDesligamento ?? '');
+      setVinculoClassificacaoTributaria(demand.vinculoClassificacaoTributaria ?? '');
+      setVinculoCategoriaTrabalhador(demand.vinculoCategoriaTrabalhador ?? '');
+      setVinculoCnae(demand.vinculoCnae ?? '');
+      setVinculoCbo(demand.vinculoCbo ?? '');
+      setVinculoPeriodoReferencia(demand.vinculoPeriodoReferencia ?? '');
     }
   }, [demand?.id]);
 
@@ -583,7 +620,12 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
       });
 
       const mimeType = file.type || 'image/jpeg';
-      const prompt = `Analise esta imagem e extraia as seguintes informações do demandante/cidadão. Retorne APENAS um JSON válido com as chaves: "nome", "cpf", "dataNascimento", "situacaoCidadao". Se não encontrar algum campo, retorne string vazia para ele. O campo dataNascimento deve estar no formato DD/MM/AAAA se encontrado. Exemplo: {"nome": "João da Silva", "cpf": "000.000.000-00", "dataNascimento": "01/01/1990", "situacaoCidadao": "Aposentado"}`;
+      const prompt = `Analise esta imagem do sistema Dataprev (ecogestão) e extraia TODOS os campos visíveis. Retorne APENAS um JSON válido com as seguintes chaves (string vazia se não encontrado):
+"nome", "cpf", "dataNascimento", "situacaoCidadao", "sexo", "nomeMae", "exposicaoPolitica",
+"vinculoEmpregadorCnpj", "vinculoEmpregadorNome", "vinculoMatricula", "vinculoDataAdmissao", "vinculoDataInicioAtividade",
+"vinculoBloqueio", "vinculoElegivel", "vinculoMotivoInelegibilidade", "vinculoDataDesligamento", "vinculoMotivoDesligamento",
+"vinculoClassificacaoTributaria", "vinculoCategoriaTrabalhador", "vinculoCnae", "vinculoCbo", "vinculoPeriodoReferencia".
+Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA PEREIRA DE PAULA", "cpf": "701.918.921-06", "dataNascimento": "14/07/1995", "situacaoCidadao": "", "sexo": "3 - Feminino", "nomeMae": "NEUZITA SALES PEREIRA DE PAULA", "exposicaoPolitica": "Pessoa Não Exposta Politicamente", "vinculoEmpregadorCnpj": "03.471.344", "vinculoEmpregadorNome": "CAOA MONTADORA DE VEICULOS LTDA", "vinculoMatricula": "C12S008520", "vinculoDataAdmissao": "03/11/2025", "vinculoDataInicioAtividade": "27/10/1999", "vinculoBloqueio": "0 - Sem Bloqueio", "vinculoElegivel": "NÃO", "vinculoMotivoInelegibilidade": "8 - Vínculo com empréstimo encerrado por término de vínculo anterior", "vinculoDataDesligamento": "", "vinculoMotivoDesligamento": "", "vinculoClassificacaoTributaria": "99 - Pessoas Jurídicas em geral", "vinculoCategoriaTrabalhador": "101", "vinculoCnae": "2910701", "vinculoCbo": "411010", "vinculoPeriodoReferencia": "01/2026"}`;
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
@@ -608,11 +650,47 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
         const cpf = parsed.cpf || '';
         const dataNascimento = parsed.dataNascimento || '';
         const situacaoCidadao = parsed.situacaoCidadao || '';
+        const sexo = parsed.sexo || '';
+        const nomeMae = parsed.nomeMae || '';
+        const exposicaoPolitica = parsed.exposicaoPolitica || '';
+        const empCnpj = parsed.vinculoEmpregadorCnpj || '';
+        const empNome = parsed.vinculoEmpregadorNome || '';
+        const matricula = parsed.vinculoMatricula || '';
+        const dataAdmissao = parsed.vinculoDataAdmissao || '';
+        const dataInicioAtividade = parsed.vinculoDataInicioAtividade || '';
+        const bloqueio = parsed.vinculoBloqueio || '';
+        const elegivel = parsed.vinculoElegivel || '';
+        const motivoInelegibilidade = parsed.vinculoMotivoInelegibilidade || '';
+        const dataDesligamento = parsed.vinculoDataDesligamento || '';
+        const motivoDesligamento = parsed.vinculoMotivoDesligamento || '';
+        const classifTributaria = parsed.vinculoClassificacaoTributaria || '';
+        const categoriaTrabalhador = parsed.vinculoCategoriaTrabalhador || '';
+        const cnae = parsed.vinculoCnae || '';
+        const cbo = parsed.vinculoCbo || '';
+        const periodoReferencia = parsed.vinculoPeriodoReferencia || '';
 
         if (nome) setDemandanteNome(nome);
         if (cpf) setDemandanteCpf(cpf);
         if (dataNascimento) setDemandanteDataNascimento(dataNascimento);
         if (situacaoCidadao) setDemandanteSituacao(situacaoCidadao);
+        if (sexo) setDemandanteSexo(sexo);
+        if (nomeMae) setDemandanteNomeMae(nomeMae);
+        if (exposicaoPolitica) setDemandanteExposicaoPolitica(exposicaoPolitica);
+        if (empCnpj) setVinculoEmpregadorCnpj(empCnpj);
+        if (empNome) setVinculoEmpregadorNome(empNome);
+        if (matricula) setVinculoMatricula(matricula);
+        if (dataAdmissao) setVinculoDataAdmissao(dataAdmissao);
+        if (dataInicioAtividade) setVinculoDataInicioAtividade(dataInicioAtividade);
+        if (bloqueio) setVinculoBloqueio(bloqueio);
+        if (elegivel) setVinculoElegivel(elegivel);
+        if (motivoInelegibilidade) setVinculoMotivoInelegibilidade(motivoInelegibilidade);
+        if (dataDesligamento) setVinculoDataDesligamento(dataDesligamento);
+        if (motivoDesligamento) setVinculoMotivoDesligamento(motivoDesligamento);
+        if (classifTributaria) setVinculoClassificacaoTributaria(classifTributaria);
+        if (categoriaTrabalhador) setVinculoCategoriaTrabalhador(categoriaTrabalhador);
+        if (cnae) setVinculoCnae(cnae);
+        if (cbo) setVinculoCbo(cbo);
+        if (periodoReferencia) setVinculoPeriodoReferencia(periodoReferencia);
 
         // Salva automaticamente no banco
         if (demand) {
@@ -621,6 +699,24 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
             demandanteCpf: cpf || undefined,
             demandanteDataNascimento: dataNascimento || undefined,
             demandanteSituacao: situacaoCidadao || undefined,
+            demandanteSexo: sexo || undefined,
+            demandanteNomeMae: nomeMae || undefined,
+            demandanteExposicaoPolitica: exposicaoPolitica || undefined,
+            vinculoEmpregadorCnpj: empCnpj || undefined,
+            vinculoEmpregadorNome: empNome || undefined,
+            vinculoMatricula: matricula || undefined,
+            vinculoDataAdmissao: dataAdmissao || undefined,
+            vinculoDataInicioAtividade: dataInicioAtividade || undefined,
+            vinculoBloqueio: bloqueio || undefined,
+            vinculoElegivel: elegivel || undefined,
+            vinculoMotivoInelegibilidade: motivoInelegibilidade || undefined,
+            vinculoDataDesligamento: dataDesligamento || undefined,
+            vinculoMotivoDesligamento: motivoDesligamento || undefined,
+            vinculoClassificacaoTributaria: classifTributaria || undefined,
+            vinculoCategoriaTrabalhador: categoriaTrabalhador || undefined,
+            vinculoCnae: cnae || undefined,
+            vinculoCbo: cbo || undefined,
+            vinculoPeriodoReferencia: periodoReferencia || undefined,
           });
           queryClient.invalidateQueries({ queryKey: ['demand', id] });
         }
@@ -645,6 +741,24 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
         demandanteCpf: demandanteCpf || undefined,
         demandanteDataNascimento: demandanteDataNascimento || undefined,
         demandanteSituacao: demandanteSituacao || undefined,
+        demandanteSexo: demandanteSexo || undefined,
+        demandanteNomeMae: demandanteNomeMae || undefined,
+        demandanteExposicaoPolitica: demandanteExposicaoPolitica || undefined,
+        vinculoEmpregadorCnpj: vinculoEmpregadorCnpj || undefined,
+        vinculoEmpregadorNome: vinculoEmpregadorNome || undefined,
+        vinculoMatricula: vinculoMatricula || undefined,
+        vinculoDataAdmissao: vinculoDataAdmissao || undefined,
+        vinculoDataInicioAtividade: vinculoDataInicioAtividade || undefined,
+        vinculoBloqueio: vinculoBloqueio || undefined,
+        vinculoElegivel: vinculoElegivel || undefined,
+        vinculoMotivoInelegibilidade: vinculoMotivoInelegibilidade || undefined,
+        vinculoDataDesligamento: vinculoDataDesligamento || undefined,
+        vinculoMotivoDesligamento: vinculoMotivoDesligamento || undefined,
+        vinculoClassificacaoTributaria: vinculoClassificacaoTributaria || undefined,
+        vinculoCategoriaTrabalhador: vinculoCategoriaTrabalhador || undefined,
+        vinculoCnae: vinculoCnae || undefined,
+        vinculoCbo: vinculoCbo || undefined,
+        vinculoPeriodoReferencia: vinculoPeriodoReferencia || undefined,
       });
       queryClient.invalidateQueries({ queryKey: ['demand', id] });
       toast({ title: 'Situação do demandante salva com sucesso!' });
@@ -889,38 +1003,101 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
                   </span>
                 )}
               </div>
+              {/* Dados do Trabalhador */}
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados do Trabalhador</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Nome</label>
-                  <Input
-                    placeholder="Nome do demandante"
-                    value={demandanteNome}
-                    onChange={(e) => setDemandanteNome(e.target.value)}
-                  />
+                  <Input placeholder="Nome do trabalhador" value={demandanteNome} onChange={(e) => setDemandanteNome(e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">CPF</label>
-                  <Input
-                    placeholder="000.000.000-00"
-                    value={demandanteCpf}
-                    onChange={(e) => setDemandanteCpf(e.target.value)}
-                  />
+                  <Input placeholder="000.000.000-00" value={demandanteCpf} onChange={(e) => setDemandanteCpf(e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Data de Nascimento</label>
-                  <Input
-                    placeholder="DD/MM/AAAA"
-                    value={demandanteDataNascimento}
-                    onChange={(e) => setDemandanteDataNascimento(e.target.value)}
-                  />
+                  <Input placeholder="DD/MM/AAAA" value={demandanteDataNascimento} onChange={(e) => setDemandanteDataNascimento(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Sexo</label>
+                  <Input placeholder="Ex: 3 - Feminino" value={demandanteSexo} onChange={(e) => setDemandanteSexo(e.target.value)} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-xs text-muted-foreground">Nome da Mãe</label>
+                  <Input placeholder="Nome completo da mãe" value={demandanteNomeMae} onChange={(e) => setDemandanteNomeMae(e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Situação do Cidadão</label>
-                  <Input
-                    placeholder="Ex: Aposentado, Empregado, Estudante..."
-                    value={demandanteSituacao}
-                    onChange={(e) => setDemandanteSituacao(e.target.value)}
-                  />
+                  <Input placeholder="Ex: Aposentado, Empregado..." value={demandanteSituacao} onChange={(e) => setDemandanteSituacao(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Exposição Política (PEP)</label>
+                  <Input placeholder="Ex: Pessoa Não Exposta Politicamente" value={demandanteExposicaoPolitica} onChange={(e) => setDemandanteExposicaoPolitica(e.target.value)} />
+                </div>
+              </div>
+
+              {/* Dados do Vínculo Empregatício */}
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">Dados do Vínculo Empregatício</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CNPJ do Empregador</label>
+                  <Input placeholder="00.000.000/0000-00" value={vinculoEmpregadorCnpj} onChange={(e) => setVinculoEmpregadorCnpj(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Nome do Empregador</label>
+                  <Input placeholder="Razão social" value={vinculoEmpregadorNome} onChange={(e) => setVinculoEmpregadorNome(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Matrícula</label>
+                  <Input placeholder="Ex: C12S008520" value={vinculoMatricula} onChange={(e) => setVinculoMatricula(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Admissão</label>
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataAdmissao} onChange={(e) => setVinculoDataAdmissao(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Início da Atividade</label>
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataInicioAtividade} onChange={(e) => setVinculoDataInicioAtividade(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Bloqueio</label>
+                  <Input placeholder="Ex: 0 - Sem Bloqueio" value={vinculoBloqueio} onChange={(e) => setVinculoBloqueio(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Elegível</label>
+                  <Input placeholder="SIM / NÃO" value={vinculoElegivel} onChange={(e) => setVinculoElegivel(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Período de Referência</label>
+                  <Input placeholder="Ex: 01/2026" value={vinculoPeriodoReferencia} onChange={(e) => setVinculoPeriodoReferencia(e.target.value)} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-xs text-muted-foreground">Motivo da Inelegibilidade</label>
+                  <Input placeholder="Ex: 8 - Vínculo com empréstimo encerrado por término..." value={vinculoMotivoInelegibilidade} onChange={(e) => setVinculoMotivoInelegibilidade(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Desligamento</label>
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataDesligamento} onChange={(e) => setVinculoDataDesligamento(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Motivo do Desligamento</label>
+                  <Input placeholder="Motivo do desligamento" value={vinculoMotivoDesligamento} onChange={(e) => setVinculoMotivoDesligamento(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Classificação Tributária</label>
+                  <Input placeholder="Ex: 99 - Pessoas Jurídicas em geral" value={vinculoClassificacaoTributaria} onChange={(e) => setVinculoClassificacaoTributaria(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Categoria do Trabalhador</label>
+                  <Input placeholder="Ex: 101" value={vinculoCategoriaTrabalhador} onChange={(e) => setVinculoCategoriaTrabalhador(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CNAE</label>
+                  <Input placeholder="Ex: 2910701" value={vinculoCnae} onChange={(e) => setVinculoCnae(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CBO</label>
+                  <Input placeholder="Ex: 411010" value={vinculoCbo} onChange={(e) => setVinculoCbo(e.target.value)} />
                 </div>
               </div>
               <div className="flex justify-end">

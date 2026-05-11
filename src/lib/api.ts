@@ -52,7 +52,7 @@ function mapAuditLog(row: any): AuditLog {
 /** Registra uma ação no log de auditoria. Usa supabaseAdmin para ignorar RLS. */
 export async function logAudit(input: LogAuditInput): Promise<void> {
     try {
-        await supabaseAdmin.from('audit_logs').insert({
+        await supabaseAdmin.from('ouvidoria_audit_logs').insert({
             action: input.action,
             entity_type: input.entityType ?? null,
             entity_id: input.entityId ?? null,
@@ -83,7 +83,7 @@ export interface GetAuditLogsOptions {
 /** Busca logs de auditoria (somente admin). */
 export async function getAuditLogs(opts: GetAuditLogsOptions = {}): Promise<{ data: AuditLog[]; count: number }> {
     let query = supabase
-        .from('audit_logs')
+        .from('ouvidoria_audit_logs')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false });
 
@@ -145,7 +145,7 @@ function mapDemand(row: any): Demand {
         status: row.status,
         priority: row.priority,
         organId: row.organ_id,
-        organName: row.organs?.acronym ?? '',
+        organName: row.ouvidoria_organs?.acronym ?? '',
         description: row.description,
         channel: row.channel,
         anonymous: row.anonymous,
@@ -154,7 +154,7 @@ function mapDemand(row: any): Demand {
         citizenPhone: row.citizen_phone ?? undefined,
         citizenEmail: row.citizen_email ?? undefined,
         assignedTo: row.assigned_to_id ?? undefined,
-        assignedToName: row.assigned_user?.name ?? undefined,
+        assignedToName: row.assigned_user?.name ?? undefined, // alias mantido
         createdAt: row.created_at,
         deadline: row.deadline,
         daysRemaining,
@@ -163,6 +163,24 @@ function mapDemand(row: any): Demand {
         demandanteCpf: row.demandante_cpf ?? undefined,
         demandanteDataNascimento: row.demandante_data_nascimento ?? undefined,
         demandanteSituacao: row.demandante_situacao ?? undefined,
+        demandanteSexo: row.demandante_sexo ?? undefined,
+        demandanteNomeMae: row.demandante_nome_mae ?? undefined,
+        demandanteExposicaoPolitica: row.demandante_exposicao_politica ?? undefined,
+        vinculoEmpregadorCnpj: row.vinculo_empregador_cnpj ?? undefined,
+        vinculoEmpregadorNome: row.vinculo_empregador_nome ?? undefined,
+        vinculoMatricula: row.vinculo_matricula ?? undefined,
+        vinculoDataAdmissao: row.vinculo_data_admissao ?? undefined,
+        vinculoDataInicioAtividade: row.vinculo_data_inicio_atividade ?? undefined,
+        vinculoBloqueio: row.vinculo_bloqueio ?? undefined,
+        vinculoElegivel: row.vinculo_elegivel ?? undefined,
+        vinculoMotivoInelegibilidade: row.vinculo_motivo_inelegibilidade ?? undefined,
+        vinculoDataDesligamento: row.vinculo_data_desligamento ?? undefined,
+        vinculoMotivoDesligamento: row.vinculo_motivo_desligamento ?? undefined,
+        vinculoClassificacaoTributaria: row.vinculo_classificacao_tributaria ?? undefined,
+        vinculoCategoriaTrabalhador: row.vinculo_categoria_trabalhador ?? undefined,
+        vinculoCnae: row.vinculo_cnae ?? undefined,
+        vinculoCbo: row.vinculo_cbo ?? undefined,
+        vinculoPeriodoReferencia: row.vinculo_periodo_referencia ?? undefined,
     };
 }
 
@@ -172,7 +190,7 @@ function mapHistory(row: any): DemandHistory {
         demandId: row.demand_id,
         action: row.action,
         description: row.description,
-        user: row.users?.name ?? 'Sistema',
+        user: row.ouvidoria_users?.name ?? 'Sistema',
         date: row.created_at,
         fromStatus: row.from_status ?? undefined,
         toStatus: row.to_status ?? undefined,
@@ -198,7 +216,7 @@ function mapAssistantPrompts(row: any): AssistantPrompts {
 
 export async function getOrgans(): Promise<Organ[]> {
     const { data, error } = await supabase
-        .from('organs')
+        .from('ouvidoria_organs')
         .select('*')
         .order('name');
 
@@ -209,7 +227,7 @@ export async function getOrgans(): Promise<Organ[]> {
 // Versão sem RLS para uso em páginas públicas (sem sessão autenticada)
 export async function getOrgansPublic(): Promise<Organ[]> {
     const { data, error } = await supabaseAdmin
-        .from('organs')
+        .from('ouvidoria_organs')
         .select('*')
         .order('name');
 
@@ -220,7 +238,7 @@ export async function getOrgansPublic(): Promise<Organ[]> {
 export async function getUsers(): Promise<User[]> {
     // Fetch users
     const { data: usersData, error: usersError } = await supabase
-        .from('users')
+        .from('ouvidoria_users')
         .select('*')
         .order('name');
 
@@ -228,7 +246,7 @@ export async function getUsers(): Promise<User[]> {
 
     // Fetch user_organs relationships
     const { data: userOrgansData, error: uoError } = await supabase
-        .from('user_organs')
+        .from('ouvidoria_user_organs')
         .select('user_id, organ_id');
 
     if (uoError) throw uoError;
@@ -247,8 +265,8 @@ export async function getUsers(): Promise<User[]> {
 
 export async function getDemands(): Promise<Demand[]> {
     const { data, error } = await supabase
-        .from('demands')
-        .select('*, organs(acronym), assigned_user:users!assigned_to_id(name)')
+        .from('ouvidoria_demands')
+        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
         .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -257,8 +275,8 @@ export async function getDemands(): Promise<Demand[]> {
 
 export async function getDemandById(id: string): Promise<Demand | null> {
     const { data, error } = await supabase
-        .from('demands')
-        .select('*, organs(acronym), assigned_user:users!assigned_to_id(name)')
+        .from('ouvidoria_demands')
+        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
         .eq('id', id)
         .maybeSingle();
 
@@ -268,7 +286,7 @@ export async function getDemandById(id: string): Promise<Demand | null> {
     let conversaAtiva = undefined;
     if (data.protocol) {
         const { data: convData } = await supabase
-            .from('conversas_ativas')
+            .from('ouvidoria_conversas_ativas')
             .select('*')
             .eq('protocolo', data.protocol)
             .maybeSingle();
@@ -313,8 +331,8 @@ export async function getDemandById(id: string): Promise<Demand | null> {
 
 export async function getDemandHistory(demandId: string): Promise<DemandHistory[]> {
     const { data, error } = await supabase
-        .from('demand_history')
-        .select('*, users(name)')
+        .from('ouvidoria_demand_history')
+        .select('*, ouvidoria_users(name)')
         .eq('demand_id', demandId)
         .order('created_at', { ascending: true });
 
@@ -324,7 +342,7 @@ export async function getDemandHistory(demandId: string): Promise<DemandHistory[
 
 export async function getAssistantPrompts(): Promise<AssistantPrompts | null> {
     const { data, error } = await supabase
-        .from('assistant_prompts')
+        .from('ouvidoria_assistant_prompts')
         .select('*')
         .maybeSingle();
 
@@ -342,7 +360,7 @@ export async function createOrgan(input: {
     description?: string;
 }): Promise<Organ> {
     const { data, error } = await supabase
-        .from('organs')
+        .from('ouvidoria_organs')
         .insert({
             name: input.name,
             acronym: input.acronym,
@@ -375,7 +393,7 @@ export async function createUser(input: {
     const passwordToUse = input.password || Math.random().toString(36).slice(-12) + 'A1!';
 
     // 1. Criar o usuário no Auth (Identidades, GoTrue) oficialmente usando o Admin API
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({ // auth.users não muda de nome
         email: input.email,
         password: passwordToUse,
         email_confirm: true, // Auto-confirmar
@@ -387,7 +405,7 @@ export async function createUser(input: {
     const newUserId = authData.user.id;
 
     // 2. Criar o perfil do usuário em public.users
-    const { error: profileError } = await supabaseAdmin.from('users').insert({
+    const { error: profileError } = await supabaseAdmin.from('ouvidoria_users').insert({
         id: newUserId,
         name: input.name,
         cpf: input.cpf,
@@ -407,7 +425,7 @@ export async function createUser(input: {
     // 3. Insert user_organs relationships
     if (input.organIds.length > 0) {
         const { error: uoError } = await supabaseAdmin
-            .from('user_organs')
+            .from('ouvidoria_user_organs')
             .insert(input.organIds.map((organId) => ({
                 user_id: newUserId,
                 organ_id: organId,
@@ -417,7 +435,7 @@ export async function createUser(input: {
 
     // 4. Fetch the created user to return
     const { data, error } = await supabase
-        .from('users')
+        .from('ouvidoria_users')
         .select('*')
         .eq('id', newUserId)
         .single();
@@ -440,7 +458,7 @@ export async function createDemand(input: {
     deadline: string;
 }): Promise<Demand> {
     const { data, error } = await supabase
-        .from('demands')
+        .from('ouvidoria_demands')
         .insert({
             // O protocolo agora é gerado automaticamente pelo banco via trigger
             type: input.type,
@@ -456,7 +474,7 @@ export async function createDemand(input: {
             citizen_email: input.citizenEmail || null,
             deadline: input.deadline,
         })
-        .select('*, organs(acronym), assigned_user:users!assigned_to_id(name)')
+        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
         .single();
 
     if (error) throw error;
@@ -478,7 +496,7 @@ export async function createDemandPublic(input: {
     deadline: string;
 }): Promise<Demand> {
     const { data, error } = await supabaseAdmin
-        .from('demands')
+        .from('ouvidoria_demands')
         .insert({
             type: input.type,
             status: 'registrada',
@@ -493,7 +511,7 @@ export async function createDemandPublic(input: {
             citizen_email: input.citizenEmail || null,
             deadline: input.deadline,
         })
-        .select('*, organs(acronym), assigned_user:users!assigned_to_id(name)')
+        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
         .single();
 
     if (error) throw error;
@@ -502,14 +520,14 @@ export async function createDemandPublic(input: {
 
 export async function addUserOrganLink(userId: string, organId: string): Promise<void> {
     const { error } = await supabase
-        .from('user_organs')
+        .from('ouvidoria_user_organs')
         .insert({ user_id: userId, organ_id: organId });
     if (error) throw error;
 }
 
 export async function removeUserOrganLink(userId: string, organId: string): Promise<void> {
     const { error } = await supabase
-        .from('user_organs')
+        .from('ouvidoria_user_organs')
         .delete()
         .eq('user_id', userId)
         .eq('organ_id', organId);
@@ -526,7 +544,7 @@ export async function updateOrgan(id: string, input: {
     description?: string;
 }): Promise<Organ> {
     const { data, error } = await supabase
-        .from('organs')
+        .from('ouvidoria_organs')
         .update({
             name: input.name,
             acronym: input.acronym,
@@ -554,7 +572,7 @@ export async function updateUser(id: string, input: {
     password?: string;
 }): Promise<User> {
     const { data, error } = await supabase
-        .from('users')
+        .from('ouvidoria_users')
         .update({
             name: input.name,
             cpf: input.cpf,
@@ -585,14 +603,14 @@ export async function updateUser(id: string, input: {
 
     // Sync user_organs: delete all then re-insert
     const { error: delError } = await supabase
-        .from('user_organs')
+        .from('ouvidoria_user_organs')
         .delete()
         .eq('user_id', id);
     if (delError) throw delError;
 
     if (input.organIds.length > 0) {
         const { error: uoError } = await supabase
-            .from('user_organs')
+            .from('ouvidoria_user_organs')
             .insert(input.organIds.map((organId) => ({
                 user_id: id,
                 organ_id: organId,
@@ -632,6 +650,24 @@ export async function updateDemand(id: string, input: {
     demandanteCpf?: string;
     demandanteDataNascimento?: string;
     demandanteSituacao?: string;
+    demandanteSexo?: string;
+    demandanteNomeMae?: string;
+    demandanteExposicaoPolitica?: string;
+    vinculoEmpregadorCnpj?: string;
+    vinculoEmpregadorNome?: string;
+    vinculoMatricula?: string;
+    vinculoDataAdmissao?: string;
+    vinculoDataInicioAtividade?: string;
+    vinculoBloqueio?: string;
+    vinculoElegivel?: string;
+    vinculoMotivoInelegibilidade?: string;
+    vinculoDataDesligamento?: string;
+    vinculoMotivoDesligamento?: string;
+    vinculoClassificacaoTributaria?: string;
+    vinculoCategoriaTrabalhador?: string;
+    vinculoCnae?: string;
+    vinculoCbo?: string;
+    vinculoPeriodoReferencia?: string;
 }): Promise<Demand> {
     const updatePayload: Record<string, any> = {};
     if (input.type !== undefined) updatePayload.type = input.type;
@@ -651,12 +687,30 @@ export async function updateDemand(id: string, input: {
     if (input.demandanteCpf !== undefined) updatePayload.demandante_cpf = input.demandanteCpf || null;
     if (input.demandanteDataNascimento !== undefined) updatePayload.demandante_data_nascimento = input.demandanteDataNascimento || null;
     if (input.demandanteSituacao !== undefined) updatePayload.demandante_situacao = input.demandanteSituacao || null;
+    if (input.demandanteSexo !== undefined) updatePayload.demandante_sexo = input.demandanteSexo || null;
+    if (input.demandanteNomeMae !== undefined) updatePayload.demandante_nome_mae = input.demandanteNomeMae || null;
+    if (input.demandanteExposicaoPolitica !== undefined) updatePayload.demandante_exposicao_politica = input.demandanteExposicaoPolitica || null;
+    if (input.vinculoEmpregadorCnpj !== undefined) updatePayload.vinculo_empregador_cnpj = input.vinculoEmpregadorCnpj || null;
+    if (input.vinculoEmpregadorNome !== undefined) updatePayload.vinculo_empregador_nome = input.vinculoEmpregadorNome || null;
+    if (input.vinculoMatricula !== undefined) updatePayload.vinculo_matricula = input.vinculoMatricula || null;
+    if (input.vinculoDataAdmissao !== undefined) updatePayload.vinculo_data_admissao = input.vinculoDataAdmissao || null;
+    if (input.vinculoDataInicioAtividade !== undefined) updatePayload.vinculo_data_inicio_atividade = input.vinculoDataInicioAtividade || null;
+    if (input.vinculoBloqueio !== undefined) updatePayload.vinculo_bloqueio = input.vinculoBloqueio || null;
+    if (input.vinculoElegivel !== undefined) updatePayload.vinculo_elegivel = input.vinculoElegivel || null;
+    if (input.vinculoMotivoInelegibilidade !== undefined) updatePayload.vinculo_motivo_inelegibilidade = input.vinculoMotivoInelegibilidade || null;
+    if (input.vinculoDataDesligamento !== undefined) updatePayload.vinculo_data_desligamento = input.vinculoDataDesligamento || null;
+    if (input.vinculoMotivoDesligamento !== undefined) updatePayload.vinculo_motivo_desligamento = input.vinculoMotivoDesligamento || null;
+    if (input.vinculoClassificacaoTributaria !== undefined) updatePayload.vinculo_classificacao_tributaria = input.vinculoClassificacaoTributaria || null;
+    if (input.vinculoCategoriaTrabalhador !== undefined) updatePayload.vinculo_categoria_trabalhador = input.vinculoCategoriaTrabalhador || null;
+    if (input.vinculoCnae !== undefined) updatePayload.vinculo_cnae = input.vinculoCnae || null;
+    if (input.vinculoCbo !== undefined) updatePayload.vinculo_cbo = input.vinculoCbo || null;
+    if (input.vinculoPeriodoReferencia !== undefined) updatePayload.vinculo_periodo_referencia = input.vinculoPeriodoReferencia || null;
 
     const { data, error } = await supabase
-        .from('demands')
+        .from('ouvidoria_demands')
         .update(updatePayload)
         .eq('id', id)
-        .select('*, organs(acronym), assigned_user:users!assigned_to_id(name)')
+        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
         .single();
 
     if (error) throw error;
@@ -672,7 +726,7 @@ export async function addDemandHistory(input: {
     toStatus?: string;
 }): Promise<DemandHistory> {
     const { data, error } = await supabase
-        .from('demand_history')
+        .from('ouvidoria_demand_history')
         .insert({
             demand_id: input.demandId,
             action: input.action,
@@ -681,7 +735,7 @@ export async function addDemandHistory(input: {
             from_status: input.fromStatus ?? null,
             to_status: input.toStatus ?? null,
         })
-        .select('*, users(name)')
+        .select('*, ouvidoria_users(name)')
         .single();
 
     if (error) throw error;
@@ -724,7 +778,7 @@ export async function updateAssistantPrompts(id: string, updates: Partial<Assist
     const payload = toSnakeCasePrompts(updates);
 
     const { data, error } = await supabase
-        .from('assistant_prompts')
+        .from('ouvidoria_assistant_prompts')
         .update(payload)
         .eq('id', id)
         .select('*')
@@ -738,7 +792,7 @@ export async function upsertAssistantPrompts(updates: Partial<AssistantPrompts>)
     const payload = toSnakeCasePrompts(updates);
 
     const { data, error } = await supabase
-        .from('assistant_prompts')
+        .from('ouvidoria_assistant_prompts')
         .upsert(payload, { onConflict: 'id' })
         .select('*')
         .single();
