@@ -519,9 +519,11 @@ const DemandaDetalhe = () => {
   const handleGerarRespostaIA = async () => {
     if (!demand) return;
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
+    const apiKey = import.meta.env.VITE_LIA_API_KEY;
+    const apiUrl = import.meta.env.VITE_LIA_API_URL;
+    const apiModel = import.meta.env.VITE_LIA_API_MODEL;
+    if (!apiKey || !apiUrl) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_LIA_API_KEY e VITE_LIA_API_URL no arquivo .env.', variant: 'destructive' });
       return;
     }
 
@@ -532,11 +534,7 @@ const DemandaDetalhe = () => {
       ? history.map((h) => `- [${h.action}] ${h.description}`).join('\n')
       : 'Nenhum andamento registrado.';
 
-    const knowledgeBaseInstruction = knowledgeBasePdf
-      ? `\n\nVocê também tem acesso a um documento PDF de base de conhecimento (anexado abaixo). Use as informações relevantes desse documento para enriquecer e embasar a resposta ao cidadão.`
-      : '';
-
-    const prompt = `Você é um assistente de ouvidoria pública. Com base nas informações abaixo, redija uma resposta formal, clara e empática ao cidadão, adequada para uma ouvidoria municipal/estadual. A resposta deve ser objetiva, informar o resultado do atendimento e encerrar de forma cordial.${knowledgeBaseInstruction}
+    const prompt = `Você é um assistente de ouvidoria pública. Com base nas informações abaixo, redija uma resposta formal, clara e empática ao cidadão, adequada para uma ouvidoria municipal/estadual. A resposta deve ser objetiva, informar o resultado do atendimento e encerrar de forma cordial.
 
 **Tipo de manifestação:** ${tipoLabel}
 **Status atual:** ${statusLabel}
@@ -551,27 +549,16 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 
     setGeneratingResposta(true);
     try {
-      const parts: object[] = [{ text: prompt }];
-
-      if (knowledgeBasePdf) {
-        const pdfBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(knowledgeBasePdf);
-        });
-        parts.push({ inline_data: { mime_type: 'application/pdf', data: pdfBase64 } });
-      }
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `${apiUrl}/api/chat/completions`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts }],
+          model: apiModel,
+          messages: [{ role: 'user', content: prompt }],
         }),
       });
 
@@ -581,7 +568,7 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
       }
 
       const data = await response.json();
-      const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const generated = data?.choices?.[0]?.message?.content ?? '';
       if (generated) {
         setRespostaText(generated.trim());
         logAudit({
@@ -604,9 +591,11 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
   };
 
   const handleOcrProcess = async (file: File) => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
+    const apiKey = import.meta.env.VITE_LIA_API_KEY;
+    const apiUrl = import.meta.env.VITE_LIA_API_URL;
+    const apiModel = import.meta.env.VITE_LIA_API_MODEL;
+    if (!apiKey || !apiUrl) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_LIA_API_KEY e VITE_LIA_API_URL no arquivo .env.', variant: 'destructive' });
       return;
     }
 
@@ -627,12 +616,24 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 "vinculoClassificacaoTributaria", "vinculoCategoriaTrabalhador", "vinculoCnae", "vinculoCbo", "vinculoPeriodoReferencia".
 Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA PEREIRA DE PAULA", "cpf": "701.918.921-06", "dataNascimento": "14/07/1995", "situacaoCidadao": "", "sexo": "3 - Feminino", "nomeMae": "NEUZITA SALES PEREIRA DE PAULA", "exposicaoPolitica": "Pessoa Não Exposta Politicamente", "vinculoEmpregadorCnpj": "03.471.344", "vinculoEmpregadorNome": "CAOA MONTADORA DE VEICULOS LTDA", "vinculoMatricula": "C12S008520", "vinculoDataAdmissao": "03/11/2025", "vinculoDataInicioAtividade": "27/10/1999", "vinculoBloqueio": "0 - Sem Bloqueio", "vinculoElegivel": "NÃO", "vinculoMotivoInelegibilidade": "8 - Vínculo com empréstimo encerrado por término de vínculo anterior", "vinculoDataDesligamento": "", "vinculoMotivoDesligamento": "", "vinculoClassificacaoTributaria": "99 - Pessoas Jurídicas em geral", "vinculoCategoriaTrabalhador": "101", "vinculoCnae": "2910701", "vinculoCbo": "411010", "vinculoPeriodoReferencia": "01/2026"}`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `${apiUrl}/api/chat/completions`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: imageBase64 } }] }],
+          model: apiModel,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+              ],
+            },
+          ],
         }),
       });
 
@@ -642,7 +643,8 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
       }
 
       const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const text = data?.choices?.[0]?.message?.content ?? '';
+      console.log('[OCR LIA response]', text);
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -723,7 +725,7 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
 
         toast({ title: 'Dados extraídos e salvos com sucesso via OCR!' });
       } else {
-        toast({ title: 'Não foi possível extrair dados da imagem.', variant: 'destructive' });
+        toast({ title: 'Não foi possível extrair dados da imagem.', description: text ? text.slice(0, 120) : 'Modelo pode não suportar visão.', variant: 'destructive' });
       }
     } catch (err: any) {
       toast({ title: 'Erro ao processar imagem.', description: err.message, variant: 'destructive' });
@@ -961,7 +963,24 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
                 Situação do Demandante
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent
+              className="space-y-4"
+              onPaste={(e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (const item of Array.from(items)) {
+                  if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (file) {
+                      setOcrImage(file);
+                      handleOcrProcess(file);
+                    }
+                    break;
+                  }
+                }
+              }}
+            >
               <div className="flex items-center gap-2 p-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30">
                 <input
                   ref={ocrImageRef}
@@ -989,6 +1008,9 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
                   )}
                   {processingOcr ? 'Processando OCR com IA...' : 'Anexar imagem para leitura OCR com IA'}
                 </Button>
+                {!processingOcr && !ocrImage && (
+                  <span className="text-[10px] text-muted-foreground/60 ml-1">ou cole com Ctrl+V</span>
+                )}
                 {ocrImage && !processingOcr && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground bg-background px-2 py-0.5 rounded border ml-auto">
                     <FileText className="w-3 h-3 text-primary" />
