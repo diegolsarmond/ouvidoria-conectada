@@ -547,6 +547,31 @@ const DemandaDetalhe = () => {
       ? history.map((h) => `- [${h.action}] ${h.description}`).join('\n')
       : 'Nenhum andamento registrado.';
 
+    const situacaoDemandanteLinhas = [
+      demandanteNome && `Nome: ${demandanteNome}`,
+      demandanteCpf && `CPF: ${demandanteCpf}`,
+      demandanteDataNascimento && `Data de Nascimento: ${demandanteDataNascimento}`,
+      demandanteSituacao && `Situação do Cidadão: ${demandanteSituacao}`,
+      demandanteSexo && `Sexo: ${demandanteSexo}`,
+      demandanteNomeMae && `Nome da Mãe: ${demandanteNomeMae}`,
+      demandanteExposicaoPolitica && `Exposição Política (PEP): ${demandanteExposicaoPolitica}`,
+      vinculoEmpregadorCnpj && `CNPJ do Empregador: ${vinculoEmpregadorCnpj}`,
+      vinculoEmpregadorNome && `Nome do Empregador: ${vinculoEmpregadorNome}`,
+      vinculoMatricula && `Matrícula: ${vinculoMatricula}`,
+      vinculoDataAdmissao && `Data de Admissão: ${vinculoDataAdmissao}`,
+      vinculoDataInicioAtividade && `Data de Início da Atividade: ${vinculoDataInicioAtividade}`,
+      vinculoBloqueio && `Bloqueio: ${vinculoBloqueio}`,
+      vinculoElegivel && `Elegível: ${vinculoElegivel}`,
+      vinculoMotivoInelegibilidade && `Motivo da Inelegibilidade: ${vinculoMotivoInelegibilidade}`,
+      vinculoDataDesligamento && `Data de Desligamento: ${vinculoDataDesligamento}`,
+      vinculoMotivoDesligamento && `Motivo do Desligamento: ${vinculoMotivoDesligamento}`,
+      vinculoClassificacaoTributaria && `Classificação Tributária: ${vinculoClassificacaoTributaria}`,
+      vinculoCategoriaTrabalhador && `Categoria do Trabalhador: ${vinculoCategoriaTrabalhador}`,
+      vinculoCnae && `CNAE: ${vinculoCnae}`,
+      vinculoCbo && `CBO: ${vinculoCbo}`,
+      vinculoPeriodoReferencia && `Período de Referência: ${vinculoPeriodoReferencia}`,
+    ].filter(Boolean).join('\n');
+
     const prompt = `Você é um assistente de ouvidoria pública. Com base nas informações abaixo, redija uma resposta formal, clara e empática ao cidadão, adequada para uma ouvidoria municipal/estadual. A resposta deve ser objetiva, informar o resultado do atendimento e encerrar de forma cordial.
 
 **Tipo de manifestação:** ${tipoLabel}
@@ -555,6 +580,9 @@ const DemandaDetalhe = () => {
 **Descrição da manifestação:**
 ${demand.description}
 
+**Situação do Demandante (dados do trabalhador/vínculo):**
+${situacaoDemandanteLinhas || 'Não informado.'}
+
 **Andamentos registrados:**
 ${historico}
 
@@ -562,7 +590,7 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 
     setGeneratingResposta(true);
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetchWithRetry(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -626,7 +654,7 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 "vinculoClassificacaoTributaria", "vinculoCategoriaTrabalhador", "vinculoCnae", "vinculoCbo", "vinculoPeriodoReferencia".
 Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA PEREIRA DE PAULA", "cpf": "701.918.921-06", "dataNascimento": "14/07/1995", "situacaoCidadao": "", "sexo": "3 - Feminino", "nomeMae": "NEUZITA SALES PEREIRA DE PAULA", "exposicaoPolitica": "Pessoa Não Exposta Politicamente", "vinculoEmpregadorCnpj": "03.471.344", "vinculoEmpregadorNome": "CAOA MONTADORA DE VEICULOS LTDA", "vinculoMatricula": "C12S008520", "vinculoDataAdmissao": "03/11/2025", "vinculoDataInicioAtividade": "27/10/1999", "vinculoBloqueio": "0 - Sem Bloqueio", "vinculoElegivel": "NÃO", "vinculoMotivoInelegibilidade": "8 - Vínculo com empréstimo encerrado por término de vínculo anterior", "vinculoDataDesligamento": "", "vinculoMotivoDesligamento": "", "vinculoClassificacaoTributaria": "99 - Pessoas Jurídicas em geral", "vinculoCategoriaTrabalhador": "101", "vinculoCnae": "2910701", "vinculoCbo": "411010", "vinculoPeriodoReferencia": "01/2026"}`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -678,28 +706,28 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
         const cbo = parsed.vinculoCbo || '';
         const periodoReferencia = parsed.vinculoPeriodoReferencia || '';
 
-        if (nome) setDemandanteNome(nome);
-        if (cpf) setDemandanteCpf(cpf);
-        if (dataNascimento) setDemandanteDataNascimento(dataNascimento);
-        if (situacaoCidadao) setDemandanteSituacao(situacaoCidadao);
-        if (sexo) setDemandanteSexo(sexo);
-        if (nomeMae) setDemandanteNomeMae(nomeMae);
-        if (exposicaoPolitica) setDemandanteExposicaoPolitica(exposicaoPolitica);
-        if (empCnpj) setVinculoEmpregadorCnpj(empCnpj);
-        if (empNome) setVinculoEmpregadorNome(empNome);
-        if (matricula) setVinculoMatricula(matricula);
-        if (dataAdmissao) setVinculoDataAdmissao(dataAdmissao);
-        if (dataInicioAtividade) setVinculoDataInicioAtividade(dataInicioAtividade);
-        if (bloqueio) setVinculoBloqueio(bloqueio);
-        if (elegivel) setVinculoElegivel(elegivel);
-        if (motivoInelegibilidade) setVinculoMotivoInelegibilidade(motivoInelegibilidade);
-        if (dataDesligamento) setVinculoDataDesligamento(dataDesligamento);
-        if (motivoDesligamento) setVinculoMotivoDesligamento(motivoDesligamento);
-        if (classifTributaria) setVinculoClassificacaoTributaria(classifTributaria);
-        if (categoriaTrabalhador) setVinculoCategoriaTrabalhador(categoriaTrabalhador);
-        if (cnae) setVinculoCnae(cnae);
-        if (cbo) setVinculoCbo(cbo);
-        if (periodoReferencia) setVinculoPeriodoReferencia(periodoReferencia);
+        setDemandanteNome(nome);
+        setDemandanteCpf(cpf);
+        setDemandanteDataNascimento(dataNascimento);
+        setDemandanteSituacao(situacaoCidadao);
+        setDemandanteSexo(sexo);
+        setDemandanteNomeMae(nomeMae);
+        setDemandanteExposicaoPolitica(exposicaoPolitica);
+        setVinculoEmpregadorCnpj(empCnpj);
+        setVinculoEmpregadorNome(empNome);
+        setVinculoMatricula(matricula);
+        setVinculoDataAdmissao(dataAdmissao);
+        setVinculoDataInicioAtividade(dataInicioAtividade);
+        setVinculoBloqueio(bloqueio);
+        setVinculoElegivel(elegivel);
+        setVinculoMotivoInelegibilidade(motivoInelegibilidade);
+        setVinculoDataDesligamento(dataDesligamento);
+        setVinculoMotivoDesligamento(motivoDesligamento);
+        setVinculoClassificacaoTributaria(classifTributaria);
+        setVinculoCategoriaTrabalhador(categoriaTrabalhador);
+        setVinculoCnae(cnae);
+        setVinculoCbo(cbo);
+        setVinculoPeriodoReferencia(periodoReferencia);
 
         // Salva automaticamente no banco
         if (demand) {
