@@ -516,14 +516,27 @@ const DemandaDetalhe = () => {
     }
   };
 
+  const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 4): Promise<Response> => {
+    const delays = [5000, 15000, 30000];
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const response = await fetch(url, options);
+      if (response.status === 429 && attempt < maxRetries - 1) {
+        const retryAfter = response.headers.get('Retry-After');
+        const wait = retryAfter ? parseInt(retryAfter) * 1000 : delays[attempt] ?? 30000;
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      return response;
+    }
+    throw new Error('Limite de requisições da API atingido. Aguarde 1 minuto e tente novamente.');
+  };
+
   const handleGerarRespostaIA = async () => {
     if (!demand) return;
 
-    const apiKey = import.meta.env.VITE_LIA_API_KEY;
-    const apiUrl = import.meta.env.VITE_LIA_API_URL;
-    const apiModel = import.meta.env.VITE_LIA_API_MODEL;
-    if (!apiKey || !apiUrl) {
-      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_LIA_API_KEY e VITE_LIA_API_URL no arquivo .env.', variant: 'destructive' });
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
       return;
     }
 
@@ -549,26 +562,25 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 
     setGeneratingResposta(true);
     try {
-      const url = `${apiUrl}/api/chat/completions`;
-      const response = await fetch(url, {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const response = await fetchWithRetry(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: apiModel,
-          messages: [{ role: 'user', content: prompt }],
+          contents: [{ parts: [{ text: prompt }] }],
         }),
       });
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error((err as any)?.error?.message || `Erro HTTP ${response.status}`);
+        const msg = response.status === 429
+          ? 'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.'
+          : (err as any)?.error?.message || `Erro HTTP ${response.status}`;
+        throw new Error(msg);
       }
 
       const data = await response.json();
-      const generated = data?.choices?.[0]?.message?.content ?? '';
+      const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
       if (generated) {
         setRespostaText(generated.trim());
         logAudit({
@@ -591,11 +603,9 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
   };
 
   const handleOcrProcess = async (file: File) => {
-    const apiKey = import.meta.env.VITE_LIA_API_KEY;
-    const apiUrl = import.meta.env.VITE_LIA_API_URL;
-    const apiModel = import.meta.env.VITE_LIA_API_MODEL;
-    if (!apiKey || !apiUrl) {
-      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_LIA_API_KEY e VITE_LIA_API_URL no arquivo .env.', variant: 'destructive' });
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
       return;
     }
 
@@ -616,35 +626,32 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 "vinculoClassificacaoTributaria", "vinculoCategoriaTrabalhador", "vinculoCnae", "vinculoCbo", "vinculoPeriodoReferencia".
 Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA PEREIRA DE PAULA", "cpf": "701.918.921-06", "dataNascimento": "14/07/1995", "situacaoCidadao": "", "sexo": "3 - Feminino", "nomeMae": "NEUZITA SALES PEREIRA DE PAULA", "exposicaoPolitica": "Pessoa Não Exposta Politicamente", "vinculoEmpregadorCnpj": "03.471.344", "vinculoEmpregadorNome": "CAOA MONTADORA DE VEICULOS LTDA", "vinculoMatricula": "C12S008520", "vinculoDataAdmissao": "03/11/2025", "vinculoDataInicioAtividade": "27/10/1999", "vinculoBloqueio": "0 - Sem Bloqueio", "vinculoElegivel": "NÃO", "vinculoMotivoInelegibilidade": "8 - Vínculo com empréstimo encerrado por término de vínculo anterior", "vinculoDataDesligamento": "", "vinculoMotivoDesligamento": "", "vinculoClassificacaoTributaria": "99 - Pessoas Jurídicas em geral", "vinculoCategoriaTrabalhador": "101", "vinculoCnae": "2910701", "vinculoCbo": "411010", "vinculoPeriodoReferencia": "01/2026"}`;
 
-      const url = `${apiUrl}/api/chat/completions`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: apiModel,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
-              ],
-            },
-          ],
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+            ],
+          }],
+          generationConfig: { responseMimeType: 'text/plain' },
         }),
       });
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error((err as any)?.error?.message || `Erro HTTP ${response.status}`);
+        const msg = response.status === 429
+          ? 'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.'
+          : (err as any)?.error?.message || `Erro HTTP ${response.status}`;
+        throw new Error(msg);
       }
 
       const data = await response.json();
-      const text = data?.choices?.[0]?.message?.content ?? '';
-      console.log('[OCR LIA response]', text);
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      console.log('[OCR Gemini response]', text);
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
