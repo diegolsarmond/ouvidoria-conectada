@@ -621,6 +621,14 @@ export async function updateUser(id: string, input: {
     return mapUser(data, input.organIds);
 }
 
+export async function toggleUserStatus(userId: string, newStatus: 'ativo' | 'inativo'): Promise<void> {
+    const { error } = await supabase
+        .from('ouvidoria_users')
+        .update({ status: newStatus })
+        .eq('id', userId);
+    if (error) throw error;
+}
+
 export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
     if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
         throw new Error("A chave VITE_SUPABASE_SERVICE_ROLE_KEY não foi configurada no .env para redefinição de senhas.");
