@@ -49,6 +49,30 @@ export interface Demand {
   deadline: string;
   daysRemaining: number;
   attachments?: number;
+  // Dados do Trabalhador (OCR Dataprev)
+  demandanteNome?: string;
+  demandanteCpf?: string;
+  demandanteDataNascimento?: string;
+  demandanteSituacao?: string;
+  demandanteSexo?: string;
+  demandanteNomeMae?: string;
+  demandanteExposicaoPolitica?: string;
+  // Dados do Vínculo Empregatício (OCR Dataprev)
+  vinculoEmpregadorCnpj?: string;
+  vinculoEmpregadorNome?: string;
+  vinculoMatricula?: string;
+  vinculoDataAdmissao?: string;
+  vinculoDataInicioAtividade?: string;
+  vinculoBloqueio?: string;
+  vinculoElegivel?: string;
+  vinculoMotivoInelegibilidade?: string;
+  vinculoDataDesligamento?: string;
+  vinculoMotivoDesligamento?: string;
+  vinculoClassificacaoTributaria?: string;
+  vinculoCategoriaTrabalhador?: string;
+  vinculoCnae?: string;
+  vinculoCbo?: string;
+  vinculoPeriodoReferencia?: string;
   conversaAtiva?: ConversaAtiva;
 }
 
@@ -139,5 +163,6 @@ export interface AssistantPrompts {
   triagem: string;
   saudacao: string;
   baseConhecimento: string;
+  baseConhecimentoPdfUrl?: string | null;
   updatedAt: string;
 }

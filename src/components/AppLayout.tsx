@@ -3,9 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileText,
-  Building2,
   Users,
-  Link2,
   LogOut,
   Menu,
   X,
@@ -23,9 +21,7 @@ import { ROLE_LABELS } from '@/types/ouvidoria';
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/demandas', label: 'Demandas', icon: FileText },
-  { path: '/orgaos', label: 'Órgãos', icon: Building2 },
   { path: '/usuarios', label: 'Usuários', icon: Users },
-  { path: '/vinculos', label: 'Vínculos', icon: Link2 },
   { path: '/assistant-prompts', label: 'Prompt do Assistente', icon: Sparkles, adminOnly: true },
   { path: '/audit-logs', label: 'Logs de Auditoria', icon: ClipboardList, adminOnly: true },
 ];
@@ -87,10 +83,7 @@ const AppLayout = () => {
                 if (profile?.role === 'atendente' && item.path !== '/demandas') {
                   return false;
                 }
-                if (profile?.role === 'gestor_orgao' && (item.path === '/orgaos' || item.path === '/vinculos')) {
-                  return false;
-                }
-                if (profile?.role === 'ouvidor' && (item.path === '/orgaos' || item.path === '/vinculos' || item.path === '/usuarios')) {
+                if (profile?.role === 'ouvidor' && item.path === '/usuarios') {
                   return false;
                 }
                 if (item.adminOnly && profile?.role !== 'administrador') {

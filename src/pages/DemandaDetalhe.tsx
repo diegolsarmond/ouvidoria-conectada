@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -38,6 +39,9 @@ import {
   Lock,
   X,
   Sparkles,
+  FileUp,
+  Upload,
+  IdCard,
 } from 'lucide-react';
 import {
   DEMAND_STATUS_LABELS,
@@ -205,6 +209,67 @@ const DemandaDetalhe = () => {
   // ─── Anexo (attachment) state ───────────────────────────────────────
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Knowledge base PDF state ────────────────────────────────────────
+  const [knowledgeBasePdf, setKnowledgeBasePdf] = useState<File | null>(null);
+  const knowledgeBasePdfRef = useRef<HTMLInputElement>(null);
+
+  // ─── Situação do demandante (OCR) ────────────────────────────────────
+  const [demandanteNome, setDemandanteNome] = useState('');
+  const [demandanteCpf, setDemandanteCpf] = useState('');
+  const [demandanteDataNascimento, setDemandanteDataNascimento] = useState('');
+  const [demandanteSituacao, setDemandanteSituacao] = useState('');
+  const [demandanteSexo, setDemandanteSexo] = useState('');
+  const [demandanteNomeMae, setDemandanteNomeMae] = useState('');
+  const [demandanteExposicaoPolitica, setDemandanteExposicaoPolitica] = useState('');
+  // Vínculo empregatício
+  const [vinculoEmpregadorCnpj, setVinculoEmpregadorCnpj] = useState('');
+  const [vinculoEmpregadorNome, setVinculoEmpregadorNome] = useState('');
+  const [vinculoMatricula, setVinculoMatricula] = useState('');
+  const [vinculoDataAdmissao, setVinculoDataAdmissao] = useState('');
+  const [vinculoDataInicioAtividade, setVinculoDataInicioAtividade] = useState('');
+  const [vinculoBloqueio, setVinculoBloqueio] = useState('');
+  const [vinculoElegivel, setVinculoElegivel] = useState('');
+  const [vinculoMotivoInelegibilidade, setVinculoMotivoInelegibilidade] = useState('');
+  const [vinculoDataDesligamento, setVinculoDataDesligamento] = useState('');
+  const [vinculoMotivoDesligamento, setVinculoMotivoDesligamento] = useState('');
+  const [vinculoClassificacaoTributaria, setVinculoClassificacaoTributaria] = useState('');
+  const [vinculoCategoriaTrabalhador, setVinculoCategoriaTrabalhador] = useState('');
+  const [vinculoCnae, setVinculoCnae] = useState('');
+  const [vinculoCbo, setVinculoCbo] = useState('');
+  const [vinculoPeriodoReferencia, setVinculoPeriodoReferencia] = useState('');
+  const [ocrImage, setOcrImage] = useState<File | null>(null);
+  const [processingOcr, setProcessingOcr] = useState(false);
+  const [savingDemandante, setSavingDemandante] = useState(false);
+  const ocrImageRef = useRef<HTMLInputElement>(null);
+
+  // Inicializa campos com dados existentes no banco
+  useEffect(() => {
+    if (demand) {
+      setDemandanteNome(demand.demandanteNome ?? '');
+      setDemandanteCpf(demand.demandanteCpf ?? '');
+      setDemandanteDataNascimento(demand.demandanteDataNascimento ?? '');
+      setDemandanteSituacao(demand.demandanteSituacao ?? '');
+      setDemandanteSexo(demand.demandanteSexo ?? '');
+      setDemandanteNomeMae(demand.demandanteNomeMae ?? '');
+      setDemandanteExposicaoPolitica(demand.demandanteExposicaoPolitica ?? '');
+      setVinculoEmpregadorCnpj(demand.vinculoEmpregadorCnpj ?? '');
+      setVinculoEmpregadorNome(demand.vinculoEmpregadorNome ?? '');
+      setVinculoMatricula(demand.vinculoMatricula ?? '');
+      setVinculoDataAdmissao(demand.vinculoDataAdmissao ?? '');
+      setVinculoDataInicioAtividade(demand.vinculoDataInicioAtividade ?? '');
+      setVinculoBloqueio(demand.vinculoBloqueio ?? '');
+      setVinculoElegivel(demand.vinculoElegivel ?? '');
+      setVinculoMotivoInelegibilidade(demand.vinculoMotivoInelegibilidade ?? '');
+      setVinculoDataDesligamento(demand.vinculoDataDesligamento ?? '');
+      setVinculoMotivoDesligamento(demand.vinculoMotivoDesligamento ?? '');
+      setVinculoClassificacaoTributaria(demand.vinculoClassificacaoTributaria ?? '');
+      setVinculoCategoriaTrabalhador(demand.vinculoCategoriaTrabalhador ?? '');
+      setVinculoCnae(demand.vinculoCnae ?? '');
+      setVinculoCbo(demand.vinculoCbo ?? '');
+      setVinculoPeriodoReferencia(demand.vinculoPeriodoReferencia ?? '');
+    }
+  }, [demand?.id]);
 
   // ─── Derived: is demand closed? ─────────────────────────────────────
   const isClosed = demand?.status === 'respondida' || demand?.status === 'concluida' || demand?.status === 'cancelada';
@@ -451,6 +516,21 @@ const DemandaDetalhe = () => {
     }
   };
 
+  const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 4): Promise<Response> => {
+    const delays = [5000, 15000, 30000];
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const response = await fetch(url, options);
+      if (response.status === 429 && attempt < maxRetries - 1) {
+        const retryAfter = response.headers.get('Retry-After');
+        const wait = retryAfter ? parseInt(retryAfter) * 1000 : delays[attempt] ?? 30000;
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      return response;
+    }
+    throw new Error('Limite de requisições da API atingido. Aguarde 1 minuto e tente novamente.');
+  };
+
   const handleGerarRespostaIA = async () => {
     if (!demand) return;
 
@@ -467,6 +547,31 @@ const DemandaDetalhe = () => {
       ? history.map((h) => `- [${h.action}] ${h.description}`).join('\n')
       : 'Nenhum andamento registrado.';
 
+    const situacaoDemandanteLinhas = [
+      demandanteNome && `Nome: ${demandanteNome}`,
+      demandanteCpf && `CPF: ${demandanteCpf}`,
+      demandanteDataNascimento && `Data de Nascimento: ${demandanteDataNascimento}`,
+      demandanteSituacao && `Situação do Cidadão: ${demandanteSituacao}`,
+      demandanteSexo && `Sexo: ${demandanteSexo}`,
+      demandanteNomeMae && `Nome da Mãe: ${demandanteNomeMae}`,
+      demandanteExposicaoPolitica && `Exposição Política (PEP): ${demandanteExposicaoPolitica}`,
+      vinculoEmpregadorCnpj && `CNPJ do Empregador: ${vinculoEmpregadorCnpj}`,
+      vinculoEmpregadorNome && `Nome do Empregador: ${vinculoEmpregadorNome}`,
+      vinculoMatricula && `Matrícula: ${vinculoMatricula}`,
+      vinculoDataAdmissao && `Data de Admissão: ${vinculoDataAdmissao}`,
+      vinculoDataInicioAtividade && `Data de Início da Atividade: ${vinculoDataInicioAtividade}`,
+      vinculoBloqueio && `Bloqueio: ${vinculoBloqueio}`,
+      vinculoElegivel && `Elegível: ${vinculoElegivel}`,
+      vinculoMotivoInelegibilidade && `Motivo da Inelegibilidade: ${vinculoMotivoInelegibilidade}`,
+      vinculoDataDesligamento && `Data de Desligamento: ${vinculoDataDesligamento}`,
+      vinculoMotivoDesligamento && `Motivo do Desligamento: ${vinculoMotivoDesligamento}`,
+      vinculoClassificacaoTributaria && `Classificação Tributária: ${vinculoClassificacaoTributaria}`,
+      vinculoCategoriaTrabalhador && `Categoria do Trabalhador: ${vinculoCategoriaTrabalhador}`,
+      vinculoCnae && `CNAE: ${vinculoCnae}`,
+      vinculoCbo && `CBO: ${vinculoCbo}`,
+      vinculoPeriodoReferencia && `Período de Referência: ${vinculoPeriodoReferencia}`,
+    ].filter(Boolean).join('\n');
+
     const prompt = `Você é um assistente de ouvidoria pública. Com base nas informações abaixo, redija uma resposta formal, clara e empática ao cidadão, adequada para uma ouvidoria municipal/estadual. A resposta deve ser objetiva, informar o resultado do atendimento e encerrar de forma cordial.
 
 **Tipo de manifestação:** ${tipoLabel}
@@ -474,6 +579,9 @@ const DemandaDetalhe = () => {
 **Órgão responsável:** ${orgao}
 **Descrição da manifestação:**
 ${demand.description}
+
+**Situação do Demandante (dados do trabalhador/vínculo):**
+${situacaoDemandanteLinhas || 'Não informado.'}
 
 **Andamentos registrados:**
 ${historico}
@@ -483,7 +591,7 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
     setGeneratingResposta(true);
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      const response = await fetch(url, {
+      const response = await fetchWithRetry(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -493,7 +601,10 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error((err as any)?.error?.message || `Erro HTTP ${response.status}`);
+        const msg = response.status === 429
+          ? 'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.'
+          : (err as any)?.error?.message || `Erro HTTP ${response.status}`;
+        throw new Error(msg);
       }
 
       const data = await response.json();
@@ -516,6 +627,182 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
       toast({ title: 'Erro ao gerar resposta com IA.', description: err.message, variant: 'destructive' });
     } finally {
       setGeneratingResposta(false);
+    }
+  };
+
+  const handleOcrProcess = async (file: File) => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
+      return;
+    }
+
+    setProcessingOcr(true);
+    try {
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const mimeType = file.type || 'image/jpeg';
+      const prompt = `Analise esta imagem do sistema Dataprev (ecogestão) e extraia TODOS os campos visíveis. Retorne APENAS um JSON válido com as seguintes chaves (string vazia se não encontrado):
+"nome", "cpf", "dataNascimento", "situacaoCidadao", "sexo", "nomeMae", "exposicaoPolitica",
+"vinculoEmpregadorCnpj", "vinculoEmpregadorNome", "vinculoMatricula", "vinculoDataAdmissao", "vinculoDataInicioAtividade",
+"vinculoBloqueio", "vinculoElegivel", "vinculoMotivoInelegibilidade", "vinculoDataDesligamento", "vinculoMotivoDesligamento",
+"vinculoClassificacaoTributaria", "vinculoCategoriaTrabalhador", "vinculoCnae", "vinculoCbo", "vinculoPeriodoReferencia".
+Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA PEREIRA DE PAULA", "cpf": "701.918.921-06", "dataNascimento": "14/07/1995", "situacaoCidadao": "", "sexo": "3 - Feminino", "nomeMae": "NEUZITA SALES PEREIRA DE PAULA", "exposicaoPolitica": "Pessoa Não Exposta Politicamente", "vinculoEmpregadorCnpj": "03.471.344", "vinculoEmpregadorNome": "CAOA MONTADORA DE VEICULOS LTDA", "vinculoMatricula": "C12S008520", "vinculoDataAdmissao": "03/11/2025", "vinculoDataInicioAtividade": "27/10/1999", "vinculoBloqueio": "0 - Sem Bloqueio", "vinculoElegivel": "NÃO", "vinculoMotivoInelegibilidade": "8 - Vínculo com empréstimo encerrado por término de vínculo anterior", "vinculoDataDesligamento": "", "vinculoMotivoDesligamento": "", "vinculoClassificacaoTributaria": "99 - Pessoas Jurídicas em geral", "vinculoCategoriaTrabalhador": "101", "vinculoCnae": "2910701", "vinculoCbo": "411010", "vinculoPeriodoReferencia": "01/2026"}`;
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+            ],
+          }],
+          generationConfig: { responseMimeType: 'text/plain' },
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const msg = response.status === 429
+          ? 'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.'
+          : (err as any)?.error?.message || `Erro HTTP ${response.status}`;
+        throw new Error(msg);
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      console.log('[OCR Gemini response]', text);
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const nome = parsed.nome || '';
+        const cpf = parsed.cpf || '';
+        const dataNascimento = parsed.dataNascimento || '';
+        const situacaoCidadao = parsed.situacaoCidadao || '';
+        const sexo = parsed.sexo || '';
+        const nomeMae = parsed.nomeMae || '';
+        const exposicaoPolitica = parsed.exposicaoPolitica || '';
+        const empCnpj = parsed.vinculoEmpregadorCnpj || '';
+        const empNome = parsed.vinculoEmpregadorNome || '';
+        const matricula = parsed.vinculoMatricula || '';
+        const dataAdmissao = parsed.vinculoDataAdmissao || '';
+        const dataInicioAtividade = parsed.vinculoDataInicioAtividade || '';
+        const bloqueio = parsed.vinculoBloqueio || '';
+        const elegivel = parsed.vinculoElegivel || '';
+        const motivoInelegibilidade = parsed.vinculoMotivoInelegibilidade || '';
+        const dataDesligamento = parsed.vinculoDataDesligamento || '';
+        const motivoDesligamento = parsed.vinculoMotivoDesligamento || '';
+        const classifTributaria = parsed.vinculoClassificacaoTributaria || '';
+        const categoriaTrabalhador = parsed.vinculoCategoriaTrabalhador || '';
+        const cnae = parsed.vinculoCnae || '';
+        const cbo = parsed.vinculoCbo || '';
+        const periodoReferencia = parsed.vinculoPeriodoReferencia || '';
+
+        setDemandanteNome(nome);
+        setDemandanteCpf(cpf);
+        setDemandanteDataNascimento(dataNascimento);
+        setDemandanteSituacao(situacaoCidadao);
+        setDemandanteSexo(sexo);
+        setDemandanteNomeMae(nomeMae);
+        setDemandanteExposicaoPolitica(exposicaoPolitica);
+        setVinculoEmpregadorCnpj(empCnpj);
+        setVinculoEmpregadorNome(empNome);
+        setVinculoMatricula(matricula);
+        setVinculoDataAdmissao(dataAdmissao);
+        setVinculoDataInicioAtividade(dataInicioAtividade);
+        setVinculoBloqueio(bloqueio);
+        setVinculoElegivel(elegivel);
+        setVinculoMotivoInelegibilidade(motivoInelegibilidade);
+        setVinculoDataDesligamento(dataDesligamento);
+        setVinculoMotivoDesligamento(motivoDesligamento);
+        setVinculoClassificacaoTributaria(classifTributaria);
+        setVinculoCategoriaTrabalhador(categoriaTrabalhador);
+        setVinculoCnae(cnae);
+        setVinculoCbo(cbo);
+        setVinculoPeriodoReferencia(periodoReferencia);
+
+        // Salva automaticamente no banco
+        if (demand) {
+          await updateDemand(demand.id, {
+            demandanteNome: nome || undefined,
+            demandanteCpf: cpf || undefined,
+            demandanteDataNascimento: dataNascimento || undefined,
+            demandanteSituacao: situacaoCidadao || undefined,
+            demandanteSexo: sexo || undefined,
+            demandanteNomeMae: nomeMae || undefined,
+            demandanteExposicaoPolitica: exposicaoPolitica || undefined,
+            vinculoEmpregadorCnpj: empCnpj || undefined,
+            vinculoEmpregadorNome: empNome || undefined,
+            vinculoMatricula: matricula || undefined,
+            vinculoDataAdmissao: dataAdmissao || undefined,
+            vinculoDataInicioAtividade: dataInicioAtividade || undefined,
+            vinculoBloqueio: bloqueio || undefined,
+            vinculoElegivel: elegivel || undefined,
+            vinculoMotivoInelegibilidade: motivoInelegibilidade || undefined,
+            vinculoDataDesligamento: dataDesligamento || undefined,
+            vinculoMotivoDesligamento: motivoDesligamento || undefined,
+            vinculoClassificacaoTributaria: classifTributaria || undefined,
+            vinculoCategoriaTrabalhador: categoriaTrabalhador || undefined,
+            vinculoCnae: cnae || undefined,
+            vinculoCbo: cbo || undefined,
+            vinculoPeriodoReferencia: periodoReferencia || undefined,
+          });
+          queryClient.invalidateQueries({ queryKey: ['demand', id] });
+        }
+
+        toast({ title: 'Dados extraídos e salvos com sucesso via OCR!' });
+      } else {
+        toast({ title: 'Não foi possível extrair dados da imagem.', description: text ? text.slice(0, 120) : 'Modelo pode não suportar visão.', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao processar imagem.', description: err.message, variant: 'destructive' });
+    } finally {
+      setProcessingOcr(false);
+    }
+  };
+
+  const handleSalvarDemandante = async () => {
+    if (!demand) return;
+    setSavingDemandante(true);
+    try {
+      await updateDemand(demand.id, {
+        demandanteNome: demandanteNome || undefined,
+        demandanteCpf: demandanteCpf || undefined,
+        demandanteDataNascimento: demandanteDataNascimento || undefined,
+        demandanteSituacao: demandanteSituacao || undefined,
+        demandanteSexo: demandanteSexo || undefined,
+        demandanteNomeMae: demandanteNomeMae || undefined,
+        demandanteExposicaoPolitica: demandanteExposicaoPolitica || undefined,
+        vinculoEmpregadorCnpj: vinculoEmpregadorCnpj || undefined,
+        vinculoEmpregadorNome: vinculoEmpregadorNome || undefined,
+        vinculoMatricula: vinculoMatricula || undefined,
+        vinculoDataAdmissao: vinculoDataAdmissao || undefined,
+        vinculoDataInicioAtividade: vinculoDataInicioAtividade || undefined,
+        vinculoBloqueio: vinculoBloqueio || undefined,
+        vinculoElegivel: vinculoElegivel || undefined,
+        vinculoMotivoInelegibilidade: vinculoMotivoInelegibilidade || undefined,
+        vinculoDataDesligamento: vinculoDataDesligamento || undefined,
+        vinculoMotivoDesligamento: vinculoMotivoDesligamento || undefined,
+        vinculoClassificacaoTributaria: vinculoClassificacaoTributaria || undefined,
+        vinculoCategoriaTrabalhador: vinculoCategoriaTrabalhador || undefined,
+        vinculoCnae: vinculoCnae || undefined,
+        vinculoCbo: vinculoCbo || undefined,
+        vinculoPeriodoReferencia: vinculoPeriodoReferencia || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ['demand', id] });
+      toast({ title: 'Situação do demandante salva com sucesso!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao salvar.', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingDemandante(false);
     }
   };
 
@@ -700,6 +987,191 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
                   {attachmentCount} anexo(s)
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Situação do Demandante */}
+          <Card className="border shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <IdCard className="w-4 h-4 text-muted-foreground" />
+                Situação do Demandante
+              </CardTitle>
+            </CardHeader>
+            <CardContent
+              className="space-y-4"
+              onPaste={(e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (const item of Array.from(items)) {
+                  if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (file) {
+                      setOcrImage(file);
+                      handleOcrProcess(file);
+                    }
+                    break;
+                  }
+                }
+              }}
+            >
+              <div className="flex items-center gap-2 p-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30">
+                <input
+                  ref={ocrImageRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setOcrImage(file);
+                    if (file) handleOcrProcess(file);
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => ocrImageRef.current?.click()}
+                  disabled={processingOcr}
+                >
+                  {processingOcr ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5" />
+                  )}
+                  {processingOcr ? 'Processando OCR com IA...' : 'Anexar imagem para leitura OCR com IA'}
+                </Button>
+                {!processingOcr && !ocrImage && (
+                  <span className="text-[10px] text-muted-foreground/60 ml-1">ou cole com Ctrl+V</span>
+                )}
+                {ocrImage && !processingOcr && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-background px-2 py-0.5 rounded border ml-auto">
+                    <FileText className="w-3 h-3 text-primary" />
+                    {ocrImage.name}
+                    <button
+                      type="button"
+                      onClick={() => { setOcrImage(null); if (ocrImageRef.current) ocrImageRef.current.value = ''; }}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              {/* Dados do Trabalhador */}
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados do Trabalhador</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Nome</label>
+                  <Input placeholder="Nome do trabalhador" value={demandanteNome} onChange={(e) => setDemandanteNome(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CPF</label>
+                  <Input placeholder="000.000.000-00" value={demandanteCpf} onChange={(e) => setDemandanteCpf(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Nascimento</label>
+                  <Input placeholder="DD/MM/AAAA" value={demandanteDataNascimento} onChange={(e) => setDemandanteDataNascimento(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Sexo</label>
+                  <Input placeholder="Ex: 3 - Feminino" value={demandanteSexo} onChange={(e) => setDemandanteSexo(e.target.value)} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-xs text-muted-foreground">Nome da Mãe</label>
+                  <Input placeholder="Nome completo da mãe" value={demandanteNomeMae} onChange={(e) => setDemandanteNomeMae(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Situação do Cidadão</label>
+                  <Input placeholder="Ex: Aposentado, Empregado..." value={demandanteSituacao} onChange={(e) => setDemandanteSituacao(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Exposição Política (PEP)</label>
+                  <Input placeholder="Ex: Pessoa Não Exposta Politicamente" value={demandanteExposicaoPolitica} onChange={(e) => setDemandanteExposicaoPolitica(e.target.value)} />
+                </div>
+              </div>
+
+              {/* Dados do Vínculo Empregatício */}
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">Dados do Vínculo Empregatício</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CNPJ do Empregador</label>
+                  <Input placeholder="00.000.000/0000-00" value={vinculoEmpregadorCnpj} onChange={(e) => setVinculoEmpregadorCnpj(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Nome do Empregador</label>
+                  <Input placeholder="Razão social" value={vinculoEmpregadorNome} onChange={(e) => setVinculoEmpregadorNome(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Matrícula</label>
+                  <Input placeholder="Ex: C12S008520" value={vinculoMatricula} onChange={(e) => setVinculoMatricula(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Admissão</label>
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataAdmissao} onChange={(e) => setVinculoDataAdmissao(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Início da Atividade</label>
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataInicioAtividade} onChange={(e) => setVinculoDataInicioAtividade(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Bloqueio</label>
+                  <Input placeholder="Ex: 0 - Sem Bloqueio" value={vinculoBloqueio} onChange={(e) => setVinculoBloqueio(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Elegível</label>
+                  <Input placeholder="SIM / NÃO" value={vinculoElegivel} onChange={(e) => setVinculoElegivel(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Período de Referência</label>
+                  <Input placeholder="Ex: 01/2026" value={vinculoPeriodoReferencia} onChange={(e) => setVinculoPeriodoReferencia(e.target.value)} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-xs text-muted-foreground">Motivo da Inelegibilidade</label>
+                  <Input placeholder="Ex: 8 - Vínculo com empréstimo encerrado por término..." value={vinculoMotivoInelegibilidade} onChange={(e) => setVinculoMotivoInelegibilidade(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Data de Desligamento</label>
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataDesligamento} onChange={(e) => setVinculoDataDesligamento(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Motivo do Desligamento</label>
+                  <Input placeholder="Motivo do desligamento" value={vinculoMotivoDesligamento} onChange={(e) => setVinculoMotivoDesligamento(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Classificação Tributária</label>
+                  <Input placeholder="Ex: 99 - Pessoas Jurídicas em geral" value={vinculoClassificacaoTributaria} onChange={(e) => setVinculoClassificacaoTributaria(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Categoria do Trabalhador</label>
+                  <Input placeholder="Ex: 101" value={vinculoCategoriaTrabalhador} onChange={(e) => setVinculoCategoriaTrabalhador(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CNAE</label>
+                  <Input placeholder="Ex: 2910701" value={vinculoCnae} onChange={(e) => setVinculoCnae(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">CBO</label>
+                  <Input placeholder="Ex: 411010" value={vinculoCbo} onChange={(e) => setVinculoCbo(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  className="gap-1"
+                  onClick={handleSalvarDemandante}
+                  disabled={savingDemandante || processingOcr}
+                >
+                  {savingDemandante ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Send className="w-3 h-3" />
+                  )}
+                  Salvar
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

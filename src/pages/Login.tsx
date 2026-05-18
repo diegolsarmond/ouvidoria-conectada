@@ -96,17 +96,18 @@ const Login = () => {
     setLoading(true);
     try {
       await signIn(email, password);
-      navigate('/dashboard');
+      // Navegação feita pelo useEffect acima quando session é definida
     } catch (err: any) {
       const message = err?.message || '';
       if (message.includes('Failed to fetch') || message.includes('Network') || message.includes('ERR_NETWORK')) {
         setError('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else if (err.message === 'Invalid login credentials') {
+        setError('Email ou senha inválidos.');
+      } else if (err.message?.includes('relation') && err.message?.includes('does not exist')) {
+        setError('Erro de configuração do banco de dados. A migração SQL pode não ter sido executada.');
       } else {
-        setError(err.message === 'Invalid login credentials'
-          ? 'Email ou senha inválidos.'
-          : (err.message || 'Erro ao autenticar.'));
+        setError(err.message || 'Erro ao autenticar.');
       }
-    } finally {
       setLoading(false);
     }
   };

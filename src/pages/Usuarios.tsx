@@ -8,11 +8,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Search, Plus, Pencil, KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, Pencil, KeyRound, Loader2, Eye, EyeOff, UserX, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { ROLE_LABELS } from '@/types/ouvidoria';
 import type { User } from '@/types/ouvidoria';
-import { getUsers, getOrgans, resetUserPassword, logAudit } from '@/lib/api';
+import { getUsers, getOrgans, resetUserPassword, toggleUserStatus, logAudit } from '@/lib/api';
 import { UsuarioModal } from '@/components/modals/NovoUsuarioModal';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -22,6 +22,10 @@ const Usuarios = () => {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Toggle status dialog state
+  const [toggleStatusOpen, setToggleStatusOpen] = useState(false);
+  const [toggleStatusUser, setToggleStatusUser] = useState<User | null>(null);
 
   // Reset password dialog state
   const [resetPwOpen, setResetPwOpen] = useState(false);
@@ -39,6 +43,33 @@ const Usuarios = () => {
   const { data: organs = [] } = useQuery({
     queryKey: ['organs'],
     queryFn: getOrgans,
+  });
+
+  const isAdmin = profile?.role === 'administrador';
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ userId, newStatus }: { userId: string; newStatus: 'ativo' | 'inativo' }) =>
+      toggleUserStatus(userId, newStatus),
+    onSuccess: (_, { userId, newStatus }) => {
+      const targetUser = users.find((u) => u.id === userId);
+      logAudit({
+        action: newStatus === 'inativo' ? 'deactivate_user' : 'activate_user',
+        entityType: 'user',
+        entityId: userId,
+        entityName: targetUser?.name,
+        userId: profile?.id,
+        userName: profile?.name,
+        userRole: profile?.role,
+        description: `Usuário ${targetUser?.name ?? userId} ${newStatus === 'inativo' ? 'desativado' : 'reativado'} pelo administrador`,
+        oldValues: { status: newStatus === 'inativo' ? 'ativo' : 'inativo' },
+        newValues: { status: newStatus },
+      });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success(newStatus === 'inativo' ? 'Usuário desativado com sucesso!' : 'Usuário reativado com sucesso!');
+      setToggleStatusOpen(false);
+      setToggleStatusUser(null);
+    },
+    onError: (err: any) => toast.error('Erro ao alterar status: ' + (err.message || 'Erro desconhecido')),
   });
 
   const resetPwMutation = useMutation({
@@ -88,6 +119,17 @@ const Usuarios = () => {
   const getOrganNames = (organIds: string[]) =>
     organIds.map((id) => organs.find((o) => o.id === id)?.acronym || id);
 
+  const openToggleStatus = (user: User) => {
+    setToggleStatusUser(user);
+    setToggleStatusOpen(true);
+  };
+
+  const handleToggleStatus = () => {
+    if (!toggleStatusUser) return;
+    const newStatus = toggleStatusUser.status === 'ativo' ? 'inativo' : 'ativo';
+    toggleStatusMutation.mutate({ userId: toggleStatusUser.id, newStatus });
+  };
+
   const openCreate = () => { setEditingUser(null); setModalOpen(true); };
   const openEdit = (user: User) => { setEditingUser(user); setModalOpen(true); };
   const openResetPw = (user: User) => {
@@ -131,6 +173,35 @@ const Usuarios = () => {
       </div>
 
       <UsuarioModal open={modalOpen} onOpenChange={setModalOpen} user={editingUser} />
+
+      {/* Toggle Status Confirmation Dialog */}
+      <Dialog open={toggleStatusOpen} onOpenChange={setToggleStatusOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>
+              {toggleStatusUser?.status === 'ativo' ? 'Desativar Usuário' : 'Reativar Usuário'}
+            </DialogTitle>
+            <DialogDescription>
+              {toggleStatusUser?.status === 'ativo'
+                ? <>Tem certeza que deseja desativar <strong>{toggleStatusUser?.name}</strong>? O usuário perderá acesso ao sistema.</>
+                : <>Tem certeza que deseja reativar <strong>{toggleStatusUser?.name}</strong>? O usuário voltará a ter acesso ao sistema.</>
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setToggleStatusOpen(false)}>Cancelar</Button>
+            <Button
+              type="button"
+              variant={toggleStatusUser?.status === 'ativo' ? 'destructive' : 'default'}
+              disabled={toggleStatusMutation.isPending}
+              onClick={handleToggleStatus}
+            >
+              {toggleStatusMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {toggleStatusUser?.status === 'ativo' ? 'Desativar' : 'Reativar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reset Password Dialog */}
       <Dialog open={resetPwOpen} onOpenChange={setResetPwOpen}>
@@ -261,6 +332,20 @@ const Usuarios = () => {
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openResetPw(u)} title="Redefinir senha">
                             <KeyRound className="w-3 h-3" />
                           </Button>
+                          {isAdmin && profile?.id !== u.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 w-7 p-0 ${u.status === 'ativo' ? 'hover:text-destructive' : 'hover:text-green-600'}`}
+                              onClick={() => openToggleStatus(u)}
+                              title={u.status === 'ativo' ? 'Desativar usuário' : 'Reativar usuário'}
+                            >
+                              {u.status === 'ativo'
+                                ? <UserX className="w-3 h-3" />
+                                : <UserCheck className="w-3 h-3" />
+                              }
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
