@@ -11,9 +11,7 @@ import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Demandas from "./pages/Demandas";
 import DemandaDetalhe from "./pages/DemandaDetalhe";
-import Orgaos from "./pages/Orgaos";
 import Usuarios from "./pages/Usuarios";
-import Vinculos from "./pages/Vinculos";
 import AssistantPrompts from "./pages/AssistantPrompts";
 import AuditLogs from "./pages/AuditLogs";
 import NotFound from "./pages/NotFound";
@@ -45,9 +43,7 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/demandas" element={<Demandas />} />
                 <Route path="/demandas/:id" element={<DemandaDetalhe />} />
-                <Route path="/orgaos" element={<Orgaos />} />
                 <Route path="/usuarios" element={<Usuarios />} />
-                <Route path="/vinculos" element={<Vinculos />} />
                 <Route path="/assistant-prompts" element={<AssistantPrompts />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />
               </Route>
