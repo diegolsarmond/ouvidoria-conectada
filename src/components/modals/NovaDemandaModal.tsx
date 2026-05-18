@@ -30,7 +30,7 @@ interface Props {
 }
 
 const emptyForm = {
-    type: '', priority: '', organId: '', description: '', channel: '',
+    type: '', priority: '', organId: undefined as string | undefined, description: '', channel: '',
     anonymous: false, citizenName: '', citizenCpf: '', citizenPhone: '', citizenEmail: '',
     deadline: '', status: '',
 };
@@ -64,7 +64,13 @@ export function DemandaModal({ open, onOpenChange, demand }: Props) {
     }, [demand, open]);
 
     const createMutation = useMutation({
-        mutationFn: () => createDemand(form),
+        mutationFn: () => {
+            const organId = form.organId
+                || profile?.primaryOrganId
+                || profile?.organs?.[0]
+                || organs.find(o => o.status === 'ativo')?.id;
+            return createDemand({ ...form, organId });
+        },
         onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['demands'] });
             logAudit({
@@ -88,7 +94,7 @@ export function DemandaModal({ open, onOpenChange, demand }: Props) {
         mutationFn: () => updateDemand(demand!.id, {
             type: form.type,
             priority: form.priority,
-            organId: form.organId,
+            organId: form.organId || undefined,
             description: form.description,
             channel: form.channel,
             anonymous: form.anonymous,
@@ -124,7 +130,7 @@ export function DemandaModal({ open, onOpenChange, demand }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.type || !form.priority || !form.organId || !form.description || !form.channel || !form.deadline) {
+        if (!form.type || !form.priority || !form.description || !form.channel || !form.deadline) {
             toast.error('Preencha todos os campos obrigatórios.');
             return;
         }
@@ -166,29 +172,16 @@ export function DemandaModal({ open, onOpenChange, demand }: Props) {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label>Órgão *</Label>
-                                <Select value={form.organId} onValueChange={(v) => setForm({ ...form, organId: v })}>
-                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {organs.filter(o => o.status === 'ativo').map((o) => (
-                                            <SelectItem key={o.id} value={o.id}>{o.acronym} - {o.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>Canal de Entrada *</Label>
-                                <Select value={form.channel} onValueChange={(v) => setForm({ ...form, channel: v })}>
-                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(CHANNEL_LABELS).map(([k, v]) => (
-                                            <SelectItem key={k} value={k}>{v}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="grid gap-2">
+                            <Label>Canal de Entrada *</Label>
+                            <Select value={form.channel} onValueChange={(v) => setForm({ ...form, channel: v })}>
+                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(CHANNEL_LABELS).map(([k, v]) => (
+                                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {isEdit && (

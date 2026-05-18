@@ -51,22 +51,21 @@ function mapAuditLog(row: any): AuditLog {
 
 /** Registra uma ação no log de auditoria. Usa supabaseAdmin para ignorar RLS. */
 export async function logAudit(input: LogAuditInput): Promise<void> {
-    try {
-        await supabaseAdmin.from('ouvidoria_audit_logs').insert({
-            action: input.action,
-            entity_type: input.entityType ?? null,
-            entity_id: input.entityId ?? null,
-            entity_name: input.entityName ?? null,
-            user_id: input.userId ?? null,
-            user_name: input.userName ?? null,
-            user_role: input.userRole ?? null,
-            description: input.description ?? null,
-            old_values: input.oldValues ?? null,
-            new_values: input.newValues ?? null,
-        });
-    } catch (err) {
+    const { error } = await supabaseAdmin.from('ouvidoria_audit_logs').insert({
+        action: input.action,
+        entity_type: input.entityType ?? null,
+        entity_id: input.entityId ?? null,
+        entity_name: input.entityName ?? null,
+        user_id: input.userId ?? null,
+        user_name: input.userName ?? null,
+        user_role: input.userRole ?? null,
+        description: input.description ?? null,
+        old_values: input.oldValues ?? null,
+        new_values: input.newValues ?? null,
+    });
+    if (error) {
         // Nunca deixar falha de auditoria quebrar a operação principal
-        console.error('[Audit] Falha ao registrar log:', err);
+        console.error('[Audit] Falha ao registrar log:', error.message, error);
     }
 }
 
@@ -447,7 +446,7 @@ export async function createUser(input: {
 export async function createDemand(input: {
     type: string;
     priority: string;
-    organId: string;
+    organId?: string;
     description: string;
     channel: string;
     anonymous: boolean;
@@ -464,7 +463,7 @@ export async function createDemand(input: {
             type: input.type,
             status: 'registrada',
             priority: input.priority,
-            organ_id: input.organId,
+            organ_id: input.organId || null,
             description: input.description,
             channel: input.channel,
             anonymous: input.anonymous,
