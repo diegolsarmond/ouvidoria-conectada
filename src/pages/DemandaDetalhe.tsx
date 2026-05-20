@@ -60,7 +60,7 @@ import {
   logAudit,
 } from '@/lib/api';
 import { calcScore, getScoreBand, SCORE_BAND_CLASS, SCORE_BAND_LABEL, scoreTooltip } from '@/lib/priorityScore';
-import { supabase } from '@/lib/supabase';
+import { uploadFile, getPublicUrl } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -353,17 +353,9 @@ const DemandaDetalhe = () => {
       // Upload attachment if selected
       let attachmentUrl: string | null = null;
       if (selectedFile) {
-        const fileExt = selectedFile.name.split('.').pop();
         const filePath = `demands/${demand.id}/${Date.now()}_${selectedFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('attachments')
-          .upload(filePath, selectedFile);
-        if (uploadError) throw new Error(`Erro ao enviar anexo: ${uploadError.message}`);
-
-        const { data: urlData } = supabase.storage
-          .from('attachments')
-          .getPublicUrl(filePath);
-        attachmentUrl = urlData.publicUrl;
+        const { publicUrl } = await uploadFile('attachments', filePath, selectedFile);
+        attachmentUrl = publicUrl;
       }
 
       const oldStatus = demand.status;

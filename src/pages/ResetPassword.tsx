@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+
+const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -15,22 +16,12 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [validSession, setValidSession] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if we have a recovery session from the URL hash
-    const hash = window.location.hash;
-    if (hash.includes('type=recovery')) {
-      setValidSession(true);
-    } else {
-      // Also check via onAuthStateChange
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          setValidSession(true);
-        }
-      });
-      return () => subscription.unsubscribe();
-    }
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('token');
+    setToken(t);
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -38,11 +29,17 @@ const ResetPassword = () => {
     setError('');
     if (password.length < 6) { setError('A senha deve ter no mínimo 6 caracteres.'); return; }
     if (password !== confirm) { setError('As senhas não coincidem.'); return; }
+    if (!token) { setError('Token de recuperação inválido.'); return; }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      const res = await fetch(`${BASE_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao redefinir senha.');
       setSuccess('Senha redefinida com sucesso! Redirecionando...');
       setTimeout(() => navigate('/login', { replace: true }), 2000);
     } catch (err: any) {
@@ -85,7 +82,7 @@ const ResetPassword = () => {
               </div>
             )}
 
-            {!validSession && !success ? (
+            {!token && !success ? (
               <div className="text-center text-muted-foreground text-sm">
                 <p>Link inválido ou expirado.</p>
                 <Button variant="link" className="mt-2 text-accent" onClick={() => navigate('/login')}>

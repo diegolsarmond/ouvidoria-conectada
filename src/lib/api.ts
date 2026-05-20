@@ -1,5 +1,4 @@
-import { supabase } from './supabase';
-import { supabaseAdmin } from './supabase-admin';
+import { apiGet, apiPost, apiPut, apiDel, uploadFile, getPublicUrl } from './api-client';
 import type { Organ, User, Demand, DemandHistory, AssistantPrompts } from '@/types/ouvidoria';
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
@@ -49,23 +48,22 @@ function mapAuditLog(row: any): AuditLog {
     };
 }
 
-/** Registra uma ação no log de auditoria. Usa supabaseAdmin para ignorar RLS. */
 export async function logAudit(input: LogAuditInput): Promise<void> {
-    const { error } = await supabaseAdmin.from('ouvidoria_audit_logs').insert({
-        action: input.action,
-        entity_type: input.entityType ?? null,
-        entity_id: input.entityId ?? null,
-        entity_name: input.entityName ?? null,
-        user_id: input.userId ?? null,
-        user_name: input.userName ?? null,
-        user_role: input.userRole ?? null,
-        description: input.description ?? null,
-        old_values: input.oldValues ?? null,
-        new_values: input.newValues ?? null,
-    });
-    if (error) {
-        // Nunca deixar falha de auditoria quebrar a operação principal
-        console.error('[Audit] Falha ao registrar log:', error.message, error);
+    try {
+        await apiPost('/api/audit-logs', {
+            action: input.action,
+            entityType: input.entityType ?? null,
+            entityId: input.entityId ?? null,
+            entityName: input.entityName ?? null,
+            userId: input.userId ?? null,
+            userName: input.userName ?? null,
+            userRole: input.userRole ?? null,
+            description: input.description ?? null,
+            oldValues: input.oldValues ?? null,
+            newValues: input.newValues ?? null,
+        });
+    } catch (err) {
+        console.error('[Audit] Falha ao registrar log:', err);
     }
 }
 
@@ -79,29 +77,20 @@ export interface GetAuditLogsOptions {
     dateTo?: string;
 }
 
-/** Busca logs de auditoria (somente admin). */
 export async function getAuditLogs(opts: GetAuditLogsOptions = {}): Promise<{ data: AuditLog[]; count: number }> {
-    let query = supabase
-        .from('ouvidoria_audit_logs')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
-
-    if (opts.action) query = query.eq('action', opts.action);
-    if (opts.entityType) query = query.eq('entity_type', opts.entityType);
-    if (opts.userId) query = query.eq('user_id', opts.userId);
-    if (opts.dateFrom) query = query.gte('created_at', opts.dateFrom);
-    if (opts.dateTo) query = query.lte('created_at', opts.dateTo);
-
-    const pageLimit = opts.limit ?? 50;
-    const pageOffset = opts.offset ?? 0;
-    query = query.range(pageOffset, pageOffset + pageLimit - 1);
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-    return { data: (data ?? []).map(mapAuditLog), count: count ?? 0 };
+    const params = new URLSearchParams();
+    if (opts.action) params.set('action', opts.action);
+    if (opts.entityType) params.set('entityType', opts.entityType);
+    if (opts.userId) params.set('userId', opts.userId);
+    if (opts.dateFrom) params.set('dateFrom', opts.dateFrom);
+    if (opts.dateTo) params.set('dateTo', opts.dateTo);
+    params.set('limit', String(opts.limit ?? 50));
+    params.set('offset', String(opts.offset ?? 0));
+    const result = await apiGet<{ data: any[]; count: number }>(`/api/audit-logs?${params}`);
+    return { data: result.data.map(mapAuditLog), count: result.count };
 }
 
-// ─── Mappers (snake_case → camelCase) ─────────────────────────────────────────
+// ─── Mappers ──────────────────────────────────────────────────────────────────
 
 function mapOrgan(row: any): Organ {
     return {
@@ -116,7 +105,7 @@ function mapOrgan(row: any): Organ {
     };
 }
 
-function mapUser(row: any, organIds: string[]): User {
+function mapUser(row: any): User {
     return {
         id: row.id,
         name: row.name,
@@ -125,7 +114,7 @@ function mapUser(row: any, organIds: string[]): User {
         registration: row.registration,
         role: row.role,
         status: row.status,
-        organs: organIds,
+        organs: row.organ_ids ?? [],
         primaryOrganId: row.primary_organ_id ?? undefined,
         avatar: row.avatar ?? undefined,
     };
@@ -134,8 +123,35 @@ function mapUser(row: any, organIds: string[]): User {
 function mapDemand(row: any): Demand {
     const now = new Date();
     const deadline = new Date(row.deadline);
-    const diffMs = deadline.getTime() - now.getTime();
-    const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    const conversaAtiva = row.conversa_ativa ? {
+        id: row.conversa_ativa.id,
+        protocolo: row.conversa_ativa.protocolo,
+        remotejid: row.conversa_ativa.remotejid,
+        anonimo: row.conversa_ativa.anonimo,
+        nome: row.conversa_ativa.nome,
+        cpf: row.conversa_ativa.cpf,
+        telefone: row.conversa_ativa.telefone,
+        email: row.conversa_ativa.email,
+        tipoManifestacao: row.conversa_ativa.tipo_manifestacao,
+        area: row.conversa_ativa.area,
+        assunto: row.conversa_ativa.assunto,
+        demanda: row.conversa_ativa.demanda,
+        status: row.conversa_ativa.status,
+        endereco: row.conversa_ativa.endereco,
+        bairro: row.conversa_ativa.bairro,
+        cidade: row.conversa_ativa.cidade,
+        pontoReferencia: row.conversa_ativa.ponto_referencia,
+        dataOcorrencia: row.conversa_ativa.data_ocorrencia,
+        horaOcorrencia: row.conversa_ativa.hora_ocorrencia,
+        recorrente: row.conversa_ativa.recorrente,
+        descricaoDetalhada: row.conversa_ativa.descricao_detalhada,
+        canalOrigem: row.conversa_ativa.canal_origem,
+        confirmadoUsuario: row.conversa_ativa.confirmado_usuario,
+        createdAt: row.conversa_ativa.created_at,
+        updatedAt: row.conversa_ativa.updated_at,
+    } : undefined;
 
     return {
         id: row.id,
@@ -144,7 +160,7 @@ function mapDemand(row: any): Demand {
         status: row.status,
         priority: row.priority,
         organId: row.organ_id,
-        organName: row.ouvidoria_organs?.acronym ?? '',
+        organName: row.organ_acronym ?? '',
         description: row.description,
         channel: row.channel,
         anonymous: row.anonymous,
@@ -153,11 +169,12 @@ function mapDemand(row: any): Demand {
         citizenPhone: row.citizen_phone ?? undefined,
         citizenEmail: row.citizen_email ?? undefined,
         assignedTo: row.assigned_to_id ?? undefined,
-        assignedToName: row.assigned_user?.name ?? undefined, // alias mantido
+        assignedToName: row.assigned_user_name ?? undefined,
         createdAt: row.created_at,
         deadline: row.deadline,
         daysRemaining,
         attachments: row.attachments_count ?? undefined,
+        conversaAtiva,
         demandanteNome: row.demandante_nome ?? undefined,
         demandanteCpf: row.demandante_cpf ?? undefined,
         demandanteDataNascimento: row.demandante_data_nascimento ?? undefined,
@@ -189,7 +206,7 @@ function mapHistory(row: any): DemandHistory {
         demandId: row.demand_id,
         action: row.action,
         description: row.description,
-        user: row.ouvidoria_users?.name ?? 'Sistema',
+        user: row.user_name ?? 'Sistema',
         date: row.created_at,
         fromStatus: row.from_status ?? undefined,
         toStatus: row.to_status ?? undefined,
@@ -211,600 +228,159 @@ function mapAssistantPrompts(row: any): AssistantPrompts {
     };
 }
 
-// ─── Fetch Functions ──────────────────────────────────────────────────────────
+// ─── Fetch ────────────────────────────────────────────────────────────────────
 
 export async function getOrgans(): Promise<Organ[]> {
-    const { data, error } = await supabase
-        .from('ouvidoria_organs')
-        .select('*')
-        .order('name');
-
-    if (error) throw error;
-    return (data ?? []).map(mapOrgan);
+    const data = await apiGet<any[]>('/api/organs');
+    return data.map(mapOrgan);
 }
 
-// Versão sem RLS para uso em páginas públicas (sem sessão autenticada)
 export async function getOrgansPublic(): Promise<Organ[]> {
-    const { data, error } = await supabaseAdmin
-        .from('ouvidoria_organs')
-        .select('*')
-        .order('name');
-
-    if (error) throw error;
-    return (data ?? []).map(mapOrgan);
+    return getOrgans();
 }
 
 export async function getUsers(): Promise<User[]> {
-    // Fetch users
-    const { data: usersData, error: usersError } = await supabase
-        .from('ouvidoria_users')
-        .select('*')
-        .order('name');
-
-    if (usersError) throw usersError;
-
-    // Fetch user_organs relationships
-    const { data: userOrgansData, error: uoError } = await supabase
-        .from('ouvidoria_user_organs')
-        .select('user_id, organ_id');
-
-    if (uoError) throw uoError;
-
-    // Group organ IDs by user
-    const organsByUser: Record<string, string[]> = {};
-    for (const uo of userOrgansData ?? []) {
-        if (!organsByUser[uo.user_id]) organsByUser[uo.user_id] = [];
-        organsByUser[uo.user_id].push(uo.organ_id);
-    }
-
-    return (usersData ?? []).map((row) =>
-        mapUser(row, organsByUser[row.id] ?? [])
-    );
+    const data = await apiGet<any[]>('/api/users');
+    return data.map(mapUser);
 }
 
 export async function getDemands(): Promise<Demand[]> {
-    const { data, error } = await supabase
-        .from('ouvidoria_demands')
-        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
-        .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return (data ?? []).map(mapDemand);
+    const data = await apiGet<any[]>('/api/demands');
+    return data.map(mapDemand);
 }
 
 export async function getDemandById(id: string): Promise<Demand | null> {
-    const { data, error } = await supabase
-        .from('ouvidoria_demands')
-        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
-        .eq('id', id)
-        .maybeSingle();
-
-    if (error) throw error;
-    if (!data) return null;
-
-    let conversaAtiva = undefined;
-    if (data.protocol) {
-        const { data: convData } = await supabase
-            .from('ouvidoria_conversas_ativas')
-            .select('*')
-            .eq('protocolo', data.protocol)
-            .maybeSingle();
-        
-        if (convData) {
-            conversaAtiva = {
-                id: convData.id,
-                protocolo: convData.protocolo,
-                remotejid: convData.remotejid,
-                anonimo: convData.anonimo,
-                nome: convData.nome,
-                cpf: convData.cpf,
-                telefone: convData.telefone,
-                email: convData.email,
-                tipoManifestacao: convData.tipo_manifestacao,
-                area: convData.area,
-                assunto: convData.assunto,
-                demanda: convData.demanda,
-                status: convData.status,
-                endereco: convData.endereco,
-                bairro: convData.bairro,
-                cidade: convData.cidade,
-                pontoReferencia: convData.ponto_referencia,
-                dataOcorrencia: convData.data_ocorrencia,
-                horaOcorrencia: convData.hora_ocorrencia,
-                recorrente: convData.recorrente,
-                descricaoDetalhada: convData.descricao_detalhada,
-                canalOrigem: convData.canal_origem,
-                confirmadoUsuario: convData.confirmado_usuario,
-                createdAt: convData.created_at,
-                updatedAt: convData.updated_at,
-            };
-        }
-    }
-
-    const demand = mapDemand(data);
-    if (conversaAtiva) {
-        demand.conversaAtiva = conversaAtiva;
-    }
-    return demand;
+    const data = await apiGet<any>(`/api/demands/${id}`);
+    return data ? mapDemand(data) : null;
 }
 
 export async function getDemandHistory(demandId: string): Promise<DemandHistory[]> {
-    const { data, error } = await supabase
-        .from('ouvidoria_demand_history')
-        .select('*, ouvidoria_users(name)')
-        .eq('demand_id', demandId)
-        .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    return (data ?? []).map(mapHistory);
+    const data = await apiGet<any[]>(`/api/demands/${demandId}/history`);
+    return data.map(mapHistory);
 }
 
 export async function getAssistantPrompts(): Promise<AssistantPrompts | null> {
-    const { data, error } = await supabase
-        .from('ouvidoria_assistant_prompts')
-        .select('*')
-        .maybeSingle();
-
-    if (error) throw error;
+    const data = await apiGet<any>('/api/assistant-prompts');
     return data ? mapAssistantPrompts(data) : null;
 }
 
-// ─── Create Functions ─────────────────────────────────────────────────────────
+// ─── Create ───────────────────────────────────────────────────────────────────
 
 export async function createOrgan(input: {
-    name: string;
-    acronym: string;
-    email: string;
-    status: 'ativo' | 'inativo';
-    description?: string;
+    name: string; acronym: string; email: string;
+    status: 'ativo' | 'inativo'; description?: string;
 }): Promise<Organ> {
-    const { data, error } = await supabase
-        .from('ouvidoria_organs')
-        .insert({
-            name: input.name,
-            acronym: input.acronym,
-            email: input.email,
-            status: input.status,
-            description: input.description || null,
-        })
-        .select('*')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPost<any>('/api/organs', input);
     return mapOrgan(data);
 }
 
 export async function createUser(input: {
-    name: string;
-    cpf: string;
-    email: string;
-    registration: string;
-    role: string;
-    status: 'ativo' | 'inativo';
-    primaryOrganId?: string;
-    organIds: string[];
-    password?: string;
+    name: string; cpf: string; email: string; registration: string;
+    role: string; status: 'ativo' | 'inativo'; primaryOrganId?: string;
+    organIds: string[]; password?: string;
 }): Promise<User> {
-    if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
-        throw new Error("A chave VITE_SUPABASE_SERVICE_ROLE_KEY não foi configurada. Necessária para criar usuários administradores.");
-    }
-
-    const passwordToUse = input.password || Math.random().toString(36).slice(-12) + 'A1!';
-
-    // 1. Criar o usuário no Auth (Identidades, GoTrue) oficialmente usando o Admin API
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({ // auth.users não muda de nome
-        email: input.email,
-        password: passwordToUse,
-        email_confirm: true, // Auto-confirmar
-        user_metadata: { name: input.name, cpf: input.cpf }
-    });
-
-    if (authError) throw authError;
-
-    const newUserId = authData.user.id;
-
-    // 2. Criar o perfil do usuário em public.users
-    const { error: profileError } = await supabaseAdmin.from('ouvidoria_users').insert({
-        id: newUserId,
-        name: input.name,
-        cpf: input.cpf,
-        email: input.email,
-        registration: input.registration,
-        role: input.role,
-        status: input.status,
-        primary_organ_id: input.primaryOrganId || null,
-    });
-
-    if (profileError) {
-        // Fallback: se der erro na tabela public, tenta apagar no auth para não deixar dados órfãos
-        await supabaseAdmin.auth.admin.deleteUser(newUserId).catch(() => { });
-        throw profileError;
-    }
-
-    // 3. Insert user_organs relationships
-    if (input.organIds.length > 0) {
-        const { error: uoError } = await supabaseAdmin
-            .from('ouvidoria_user_organs')
-            .insert(input.organIds.map((organId) => ({
-                user_id: newUserId,
-                organ_id: organId,
-            })));
-        if (uoError) throw uoError;
-    }
-
-    // 4. Fetch the created user to return
-    const { data, error } = await supabase
-        .from('ouvidoria_users')
-        .select('*')
-        .eq('id', newUserId)
-        .single();
-
-    if (error) throw error;
-    return mapUser(data, input.organIds);
+    const data = await apiPost<any>('/api/users', input);
+    return mapUser(data);
 }
 
 export async function createDemand(input: {
-    type: string;
-    priority: string;
-    organId?: string;
-    description: string;
-    channel: string;
-    anonymous: boolean;
-    citizenName?: string;
-    citizenCpf?: string;
-    citizenPhone?: string;
-    citizenEmail?: string;
-    deadline: string;
+    type: string; priority: string; organId?: string; description: string;
+    channel: string; anonymous: boolean; citizenName?: string;
+    citizenCpf?: string; citizenPhone?: string; citizenEmail?: string; deadline: string;
 }): Promise<Demand> {
-    const { data, error } = await supabase
-        .from('ouvidoria_demands')
-        .insert({
-            // O protocolo agora é gerado automaticamente pelo banco via trigger
-            type: input.type,
-            status: 'registrada',
-            priority: input.priority,
-            organ_id: input.organId || null,
-            description: input.description,
-            channel: input.channel,
-            anonymous: input.anonymous,
-            citizen_name: input.citizenName || null,
-            citizen_cpf: input.citizenCpf || null,
-            citizen_phone: input.citizenPhone || null,
-            citizen_email: input.citizenEmail || null,
-            deadline: input.deadline,
-        })
-        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPost<any>('/api/demands', input);
     return mapDemand(data);
 }
 
-// Versão sem RLS para uso em páginas públicas (sem sessão autenticada)
 export async function createDemandPublic(input: {
-    type: string;
-    priority: string;
-    organId: string;
-    description: string;
-    channel: string;
-    anonymous: boolean;
-    citizenName?: string;
-    citizenCpf?: string;
-    citizenPhone?: string;
-    citizenEmail?: string;
-    deadline: string;
+    type: string; priority: string; organId: string; description: string;
+    channel: string; anonymous: boolean; citizenName?: string;
+    citizenCpf?: string; citizenPhone?: string; citizenEmail?: string; deadline: string;
 }): Promise<Demand> {
-    const { data, error } = await supabaseAdmin
-        .from('ouvidoria_demands')
-        .insert({
-            type: input.type,
-            status: 'registrada',
-            priority: input.priority,
-            organ_id: input.organId,
-            description: input.description,
-            channel: input.channel,
-            anonymous: input.anonymous,
-            citizen_name: input.citizenName || null,
-            citizen_cpf: input.citizenCpf || null,
-            citizen_phone: input.citizenPhone || null,
-            citizen_email: input.citizenEmail || null,
-            deadline: input.deadline,
-        })
-        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPost<any>('/api/demands/public', input);
     return mapDemand(data);
 }
 
 export async function addUserOrganLink(userId: string, organId: string): Promise<void> {
-    const { error } = await supabase
-        .from('ouvidoria_user_organs')
-        .insert({ user_id: userId, organ_id: organId });
-    if (error) throw error;
+    await apiPost(`/api/users/${userId}/organs`, { organId });
 }
 
 export async function removeUserOrganLink(userId: string, organId: string): Promise<void> {
-    const { error } = await supabase
-        .from('ouvidoria_user_organs')
-        .delete()
-        .eq('user_id', userId)
-        .eq('organ_id', organId);
-    if (error) throw error;
+    await apiDel(`/api/users/${userId}/organs/${organId}`);
 }
 
-// ─── Update Functions ─────────────────────────────────────────────────────────
+// ─── Update ───────────────────────────────────────────────────────────────────
 
 export async function updateOrgan(id: string, input: {
-    name: string;
-    acronym: string;
-    email: string;
-    status: 'ativo' | 'inativo';
-    description?: string;
+    name: string; acronym: string; email: string;
+    status: 'ativo' | 'inativo'; description?: string;
 }): Promise<Organ> {
-    const { data, error } = await supabase
-        .from('ouvidoria_organs')
-        .update({
-            name: input.name,
-            acronym: input.acronym,
-            email: input.email,
-            status: input.status,
-            description: input.description || null,
-        })
-        .eq('id', id)
-        .select('*')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPut<any>(`/api/organs/${id}`, input);
     return mapOrgan(data);
 }
 
 export async function updateUser(id: string, input: {
-    name: string;
-    cpf: string;
-    email: string;
-    registration: string;
-    role: string;
-    status: 'ativo' | 'inativo';
-    primaryOrganId?: string;
-    organIds: string[];
-    password?: string;
+    name: string; cpf: string; email: string; registration: string;
+    role: string; status: 'ativo' | 'inativo'; primaryOrganId?: string;
+    organIds: string[]; password?: string;
 }): Promise<User> {
-    const { data, error } = await supabase
-        .from('ouvidoria_users')
-        .update({
-            name: input.name,
-            cpf: input.cpf,
-            email: input.email,
-            registration: input.registration,
-            role: input.role,
-            status: input.status,
-            primary_organ_id: input.primaryOrganId || null,
-        })
-        .eq('id', id)
-        .select('*')
-        .single();
-
-    if (error) throw error;
-
-    // Se uma senha for fornecida durante a edição de usuário, usamos a Auth.Admin.API genuína do Supabase
-    // Isso atualiza a senha de forma que o GoTrue compreenda, evitando corrupções no Auth
-    if (input.password) {
-        if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
-            throw new Error("A chave VITE_SUPABASE_SERVICE_ROLE_KEY não foi configurada no .env para redefinição de senhas.");
-        }
-        const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(
-            id,
-            { password: input.password }
-        );
-        if (pwError) throw pwError;
-    }
-
-    // Sync user_organs: delete all then re-insert
-    const { error: delError } = await supabase
-        .from('ouvidoria_user_organs')
-        .delete()
-        .eq('user_id', id);
-    if (delError) throw delError;
-
-    if (input.organIds.length > 0) {
-        const { error: uoError } = await supabase
-            .from('ouvidoria_user_organs')
-            .insert(input.organIds.map((organId) => ({
-                user_id: id,
-                organ_id: organId,
-            })));
-        if (uoError) throw uoError;
-    }
-
-    return mapUser(data, input.organIds);
+    const data = await apiPut<any>(`/api/users/${id}`, input);
+    return mapUser(data);
 }
 
 export async function toggleUserStatus(userId: string, newStatus: 'ativo' | 'inativo'): Promise<void> {
-    const { error } = await supabase
-        .from('ouvidoria_users')
-        .update({ status: newStatus })
-        .eq('id', userId);
-    if (error) throw error;
+    await apiPut(`/api/users/${userId}/status`, { status: newStatus });
 }
 
 export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
-    if (!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
-        throw new Error("A chave VITE_SUPABASE_SERVICE_ROLE_KEY não foi configurada no .env para redefinição de senhas.");
-    }
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        { password: newPassword }
-    );
-    if (error) throw error;
+    await apiPut(`/api/users/${userId}/password`, { password: newPassword });
 }
 
 export async function updateDemand(id: string, input: {
-    type?: string;
-    status?: string;
-    priority?: string;
-    organId?: string;
-    description?: string;
-    channel?: string;
-    anonymous?: boolean;
-    citizenName?: string;
-    citizenCpf?: string;
-    citizenPhone?: string;
-    citizenEmail?: string;
-    assignedToId?: string | null;
-    deadline?: string;
-    demandanteNome?: string;
-    demandanteCpf?: string;
-    demandanteDataNascimento?: string;
-    demandanteSituacao?: string;
-    demandanteSexo?: string;
-    demandanteNomeMae?: string;
-    demandanteExposicaoPolitica?: string;
-    vinculoEmpregadorCnpj?: string;
-    vinculoEmpregadorNome?: string;
-    vinculoMatricula?: string;
-    vinculoDataAdmissao?: string;
-    vinculoDataInicioAtividade?: string;
-    vinculoBloqueio?: string;
-    vinculoElegivel?: string;
-    vinculoMotivoInelegibilidade?: string;
-    vinculoDataDesligamento?: string;
-    vinculoMotivoDesligamento?: string;
-    vinculoClassificacaoTributaria?: string;
-    vinculoCategoriaTrabalhador?: string;
-    vinculoCnae?: string;
-    vinculoCbo?: string;
+    type?: string; status?: string; priority?: string; organId?: string;
+    description?: string; channel?: string; anonymous?: boolean;
+    citizenName?: string; citizenCpf?: string; citizenPhone?: string; citizenEmail?: string;
+    assignedToId?: string | null; deadline?: string;
+    demandanteNome?: string; demandanteCpf?: string; demandanteDataNascimento?: string;
+    demandanteSituacao?: string; demandanteSexo?: string; demandanteNomeMae?: string;
+    demandanteExposicaoPolitica?: string; vinculoEmpregadorCnpj?: string;
+    vinculoEmpregadorNome?: string; vinculoMatricula?: string; vinculoDataAdmissao?: string;
+    vinculoDataInicioAtividade?: string; vinculoBloqueio?: string; vinculoElegivel?: string;
+    vinculoMotivoInelegibilidade?: string; vinculoDataDesligamento?: string;
+    vinculoMotivoDesligamento?: string; vinculoClassificacaoTributaria?: string;
+    vinculoCategoriaTrabalhador?: string; vinculoCnae?: string; vinculoCbo?: string;
     vinculoPeriodoReferencia?: string;
 }): Promise<Demand> {
-    const updatePayload: Record<string, any> = {};
-    if (input.type !== undefined) updatePayload.type = input.type;
-    if (input.status !== undefined) updatePayload.status = input.status;
-    if (input.priority !== undefined) updatePayload.priority = input.priority;
-    if (input.organId !== undefined) updatePayload.organ_id = input.organId;
-    if (input.description !== undefined) updatePayload.description = input.description;
-    if (input.channel !== undefined) updatePayload.channel = input.channel;
-    if (input.anonymous !== undefined) updatePayload.anonymous = input.anonymous;
-    if (input.citizenName !== undefined) updatePayload.citizen_name = input.citizenName || null;
-    if (input.citizenCpf !== undefined) updatePayload.citizen_cpf = input.citizenCpf || null;
-    if (input.citizenPhone !== undefined) updatePayload.citizen_phone = input.citizenPhone || null;
-    if (input.citizenEmail !== undefined) updatePayload.citizen_email = input.citizenEmail || null;
-    if (input.assignedToId !== undefined) updatePayload.assigned_to_id = input.assignedToId;
-    if (input.deadline !== undefined) updatePayload.deadline = input.deadline;
-    if (input.demandanteNome !== undefined) updatePayload.demandante_nome = input.demandanteNome || null;
-    if (input.demandanteCpf !== undefined) updatePayload.demandante_cpf = input.demandanteCpf || null;
-    if (input.demandanteDataNascimento !== undefined) updatePayload.demandante_data_nascimento = input.demandanteDataNascimento || null;
-    if (input.demandanteSituacao !== undefined) updatePayload.demandante_situacao = input.demandanteSituacao || null;
-    if (input.demandanteSexo !== undefined) updatePayload.demandante_sexo = input.demandanteSexo || null;
-    if (input.demandanteNomeMae !== undefined) updatePayload.demandante_nome_mae = input.demandanteNomeMae || null;
-    if (input.demandanteExposicaoPolitica !== undefined) updatePayload.demandante_exposicao_politica = input.demandanteExposicaoPolitica || null;
-    if (input.vinculoEmpregadorCnpj !== undefined) updatePayload.vinculo_empregador_cnpj = input.vinculoEmpregadorCnpj || null;
-    if (input.vinculoEmpregadorNome !== undefined) updatePayload.vinculo_empregador_nome = input.vinculoEmpregadorNome || null;
-    if (input.vinculoMatricula !== undefined) updatePayload.vinculo_matricula = input.vinculoMatricula || null;
-    if (input.vinculoDataAdmissao !== undefined) updatePayload.vinculo_data_admissao = input.vinculoDataAdmissao || null;
-    if (input.vinculoDataInicioAtividade !== undefined) updatePayload.vinculo_data_inicio_atividade = input.vinculoDataInicioAtividade || null;
-    if (input.vinculoBloqueio !== undefined) updatePayload.vinculo_bloqueio = input.vinculoBloqueio || null;
-    if (input.vinculoElegivel !== undefined) updatePayload.vinculo_elegivel = input.vinculoElegivel || null;
-    if (input.vinculoMotivoInelegibilidade !== undefined) updatePayload.vinculo_motivo_inelegibilidade = input.vinculoMotivoInelegibilidade || null;
-    if (input.vinculoDataDesligamento !== undefined) updatePayload.vinculo_data_desligamento = input.vinculoDataDesligamento || null;
-    if (input.vinculoMotivoDesligamento !== undefined) updatePayload.vinculo_motivo_desligamento = input.vinculoMotivoDesligamento || null;
-    if (input.vinculoClassificacaoTributaria !== undefined) updatePayload.vinculo_classificacao_tributaria = input.vinculoClassificacaoTributaria || null;
-    if (input.vinculoCategoriaTrabalhador !== undefined) updatePayload.vinculo_categoria_trabalhador = input.vinculoCategoriaTrabalhador || null;
-    if (input.vinculoCnae !== undefined) updatePayload.vinculo_cnae = input.vinculoCnae || null;
-    if (input.vinculoCbo !== undefined) updatePayload.vinculo_cbo = input.vinculoCbo || null;
-    if (input.vinculoPeriodoReferencia !== undefined) updatePayload.vinculo_periodo_referencia = input.vinculoPeriodoReferencia || null;
-
-    const { data, error } = await supabase
-        .from('ouvidoria_demands')
-        .update(updatePayload)
-        .eq('id', id)
-        .select('*, ouvidoria_organs(acronym), assigned_user:ouvidoria_users!assigned_to_id(name)')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPut<any>(`/api/demands/${id}`, input);
     return mapDemand(data);
 }
 
 export async function addDemandHistory(input: {
-    demandId: string;
-    action: string;
-    description: string;
-    userId: string;
-    fromStatus?: string;
-    toStatus?: string;
+    demandId: string; action: string; description: string;
+    userId: string; fromStatus?: string; toStatus?: string;
 }): Promise<DemandHistory> {
-    const { data, error } = await supabase
-        .from('ouvidoria_demand_history')
-        .insert({
-            demand_id: input.demandId,
-            action: input.action,
-            description: input.description,
-            user_id: input.userId,
-            from_status: input.fromStatus ?? null,
-            to_status: input.toStatus ?? null,
-        })
-        .select('*, ouvidoria_users(name)')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPost<any>(`/api/demands/${input.demandId}/history`, {
+        action: input.action,
+        description: input.description,
+        userId: input.userId,
+        fromStatus: input.fromStatus,
+        toStatus: input.toStatus,
+    });
     return mapHistory(data);
 }
 
-function toSnakeCasePrompts(updates: Partial<AssistantPrompts>): Record<string, any> {
-    const map: Record<string, any> = {};
-    if (updates.orquestrador !== undefined) map.orquestrador = updates.orquestrador;
-    if (updates.cadastro !== undefined) map.cadastro = updates.cadastro;
-    if (updates.consulta !== undefined) map.consulta = updates.consulta;
-    if (updates.atendimento !== undefined) map.atendimento = updates.atendimento;
-    if (updates.triagem !== undefined) map.triagem = updates.triagem;
-    if (updates.saudacao !== undefined) map.saudacao = updates.saudacao;
-    if (updates.baseConhecimento !== undefined) map.base_conhecimento = updates.baseConhecimento;
-    if (updates.baseConhecimentoPdfUrl !== undefined) map.base_conhecimento_pdf_url = updates.baseConhecimentoPdfUrl;
-    return map;
-}
-
-/** Faz upload de um PDF para o Supabase Storage e retorna a URL pública do arquivo. */
 export async function uploadKnowledgeBasePdf(file: File): Promise<string> {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `base_conhecimento_${Date.now()}.${fileExt}`;
-    const bucketName = 'knowledge-base';
-
-    // Tenta criar o bucket se não existir (ignora erro se já existir)
-    await supabase.storage.createBucket(bucketName, { public: true }).catch(() => {});
-
-    const { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, file, { upsert: true, contentType: 'application/pdf' });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from(bucketName).getPublicUrl(fileName);
-    return data.publicUrl;
+    const fileName = `base_conhecimento_${Date.now()}.${file.name.split('.').pop()}`;
+    const { publicUrl } = await uploadFile('knowledge-base', fileName, file);
+    return publicUrl;
 }
 
 export async function updateAssistantPrompts(id: string, updates: Partial<AssistantPrompts>): Promise<AssistantPrompts> {
-    const payload = toSnakeCasePrompts(updates);
-
-    const { data, error } = await supabase
-        .from('ouvidoria_assistant_prompts')
-        .update(payload)
-        .eq('id', id)
-        .select('*')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPut<any>(`/api/assistant-prompts/${id}`, updates);
     return mapAssistantPrompts(data);
 }
 
 export async function upsertAssistantPrompts(updates: Partial<AssistantPrompts>): Promise<AssistantPrompts> {
-    const payload = toSnakeCasePrompts(updates);
-
-    const { data, error } = await supabase
-        .from('ouvidoria_assistant_prompts')
-        .upsert(payload, { onConflict: 'id' })
-        .select('*')
-        .single();
-
-    if (error) throw error;
+    const data = await apiPost<any>('/api/assistant-prompts/upsert', updates);
     return mapAssistantPrompts(data);
 }
-

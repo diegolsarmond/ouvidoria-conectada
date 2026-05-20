@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiPost } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -161,11 +161,12 @@ const Login = () => {
     if (!recoverEmail) { setError('Informe o email cadastrado.'); return; }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(recoverEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
-      setSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      const data = await apiPost<any>('/api/auth/reset-password-request', { email: recoverEmail });
+      if (data.reset_url) {
+        setSuccess(`Token gerado. URL de recuperação: ${data.reset_url}`);
+      } else {
+        setSuccess('Instruções de recuperação geradas. Contate o administrador do sistema.');
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao enviar email de recuperação.');
     } finally {
