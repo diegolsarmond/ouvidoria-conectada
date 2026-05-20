@@ -512,7 +512,7 @@ const Demandas = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          {profile?.role !== 'atendente' && (
+                          {profile?.role !== 'atendente' && d.status !== 'respondida' && d.status !== 'concluida' && d.status !== 'cancelada' && (
                             <Button
                               variant="ghost"
                               size="sm"

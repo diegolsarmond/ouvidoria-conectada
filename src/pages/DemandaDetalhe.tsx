@@ -769,6 +769,33 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
     }
   };
 
+  const handleLimparSituacaoDemandante = () => {
+    setDemandanteNome('');
+    setDemandanteCpf('');
+    setDemandanteDataNascimento('');
+    setDemandanteSituacao('');
+    setDemandanteSexo('');
+    setDemandanteNomeMae('');
+    setDemandanteExposicaoPolitica('');
+    setVinculoEmpregadorCnpj('');
+    setVinculoEmpregadorNome('');
+    setVinculoMatricula('');
+    setVinculoDataAdmissao('');
+    setVinculoDataInicioAtividade('');
+    setVinculoBloqueio('');
+    setVinculoElegivel('');
+    setVinculoMotivoInelegibilidade('');
+    setVinculoDataDesligamento('');
+    setVinculoMotivoDesligamento('');
+    setVinculoClassificacaoTributaria('');
+    setVinculoCategoriaTrabalhador('');
+    setVinculoCnae('');
+    setVinculoCbo('');
+    setVinculoPeriodoReferencia('');
+    setOcrImage(null);
+    if (ocrImageRef.current) ocrImageRef.current.value = '';
+  };
+
   const handleSalvarDemandante = async () => {
     if (!demand) return;
     setSavingDemandante(true);
@@ -1001,6 +1028,7 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
             <CardContent
               className="space-y-4"
               onPaste={(e) => {
+                if (isClosed) return;
                 const items = e.clipboardData?.items;
                 if (!items) return;
                 for (const item of Array.from(items)) {
@@ -1016,6 +1044,7 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
                 }
               }}
             >
+              {!isClosed && (
               <div className="flex items-center gap-2 p-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30">
                 <input
                   ref={ocrImageRef}
@@ -1060,36 +1089,52 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
                   </span>
                 )}
               </div>
+              )}
               {/* Dados do Trabalhador */}
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados do Trabalhador</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados do Trabalhador</p>
+                {!isClosed && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 text-primary border-primary/40 hover:bg-primary/5 hover:text-primary"
+                    type="button"
+                    onClick={handleLimparSituacaoDemandante}
+                    disabled={savingDemandante || processingOcr}
+                  >
+                    <X className="w-3 h-3" />
+                    Limpar
+                  </Button>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Nome</label>
-                  <Input placeholder="Nome do trabalhador" value={demandanteNome} onChange={(e) => setDemandanteNome(e.target.value)} />
+                  <Input placeholder="Nome do trabalhador" value={demandanteNome} onChange={(e) => setDemandanteNome(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">CPF</label>
-                  <Input placeholder="000.000.000-00" value={demandanteCpf} onChange={(e) => setDemandanteCpf(e.target.value)} />
+                  <Input placeholder="000.000.000-00" value={demandanteCpf} onChange={(e) => setDemandanteCpf(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Data de Nascimento</label>
-                  <Input placeholder="DD/MM/AAAA" value={demandanteDataNascimento} onChange={(e) => setDemandanteDataNascimento(e.target.value)} />
+                  <Input placeholder="DD/MM/AAAA" value={demandanteDataNascimento} onChange={(e) => setDemandanteDataNascimento(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Sexo</label>
-                  <Input placeholder="Ex: 3 - Feminino" value={demandanteSexo} onChange={(e) => setDemandanteSexo(e.target.value)} />
+                  <Input placeholder="Ex: 3 - Feminino" value={demandanteSexo} onChange={(e) => setDemandanteSexo(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1 md:col-span-2">
                   <label className="text-xs text-muted-foreground">Nome da Mãe</label>
-                  <Input placeholder="Nome completo da mãe" value={demandanteNomeMae} onChange={(e) => setDemandanteNomeMae(e.target.value)} />
+                  <Input placeholder="Nome completo da mãe" value={demandanteNomeMae} onChange={(e) => setDemandanteNomeMae(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Situação do Cidadão</label>
-                  <Input placeholder="Ex: Aposentado, Empregado..." value={demandanteSituacao} onChange={(e) => setDemandanteSituacao(e.target.value)} />
+                  <Input placeholder="Ex: Aposentado, Empregado..." value={demandanteSituacao} onChange={(e) => setDemandanteSituacao(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Exposição Política (PEP)</label>
-                  <Input placeholder="Ex: Pessoa Não Exposta Politicamente" value={demandanteExposicaoPolitica} onChange={(e) => setDemandanteExposicaoPolitica(e.target.value)} />
+                  <Input placeholder="Ex: Pessoa Não Exposta Politicamente" value={demandanteExposicaoPolitica} onChange={(e) => setDemandanteExposicaoPolitica(e.target.value)} readOnly={isClosed} />
                 </div>
               </div>
 
@@ -1098,65 +1143,66 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">CNPJ do Empregador</label>
-                  <Input placeholder="00.000.000/0000-00" value={vinculoEmpregadorCnpj} onChange={(e) => setVinculoEmpregadorCnpj(e.target.value)} />
+                  <Input placeholder="00.000.000/0000-00" value={vinculoEmpregadorCnpj} onChange={(e) => setVinculoEmpregadorCnpj(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Nome do Empregador</label>
-                  <Input placeholder="Razão social" value={vinculoEmpregadorNome} onChange={(e) => setVinculoEmpregadorNome(e.target.value)} />
+                  <Input placeholder="Razão social" value={vinculoEmpregadorNome} onChange={(e) => setVinculoEmpregadorNome(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Matrícula</label>
-                  <Input placeholder="Ex: C12S008520" value={vinculoMatricula} onChange={(e) => setVinculoMatricula(e.target.value)} />
+                  <Input placeholder="Ex: C12S008520" value={vinculoMatricula} onChange={(e) => setVinculoMatricula(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Data de Admissão</label>
-                  <Input placeholder="DD/MM/AAAA" value={vinculoDataAdmissao} onChange={(e) => setVinculoDataAdmissao(e.target.value)} />
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataAdmissao} onChange={(e) => setVinculoDataAdmissao(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Data de Início da Atividade</label>
-                  <Input placeholder="DD/MM/AAAA" value={vinculoDataInicioAtividade} onChange={(e) => setVinculoDataInicioAtividade(e.target.value)} />
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataInicioAtividade} onChange={(e) => setVinculoDataInicioAtividade(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Bloqueio</label>
-                  <Input placeholder="Ex: 0 - Sem Bloqueio" value={vinculoBloqueio} onChange={(e) => setVinculoBloqueio(e.target.value)} />
+                  <Input placeholder="Ex: 0 - Sem Bloqueio" value={vinculoBloqueio} onChange={(e) => setVinculoBloqueio(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Elegível</label>
-                  <Input placeholder="SIM / NÃO" value={vinculoElegivel} onChange={(e) => setVinculoElegivel(e.target.value)} />
+                  <Input placeholder="SIM / NÃO" value={vinculoElegivel} onChange={(e) => setVinculoElegivel(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Período de Referência</label>
-                  <Input placeholder="Ex: 01/2026" value={vinculoPeriodoReferencia} onChange={(e) => setVinculoPeriodoReferencia(e.target.value)} />
+                  <Input placeholder="Ex: 01/2026" value={vinculoPeriodoReferencia} onChange={(e) => setVinculoPeriodoReferencia(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1 md:col-span-2">
                   <label className="text-xs text-muted-foreground">Motivo da Inelegibilidade</label>
-                  <Input placeholder="Ex: 8 - Vínculo com empréstimo encerrado por término..." value={vinculoMotivoInelegibilidade} onChange={(e) => setVinculoMotivoInelegibilidade(e.target.value)} />
+                  <Input placeholder="Ex: 8 - Vínculo com empréstimo encerrado por término..." value={vinculoMotivoInelegibilidade} onChange={(e) => setVinculoMotivoInelegibilidade(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Data de Desligamento</label>
-                  <Input placeholder="DD/MM/AAAA" value={vinculoDataDesligamento} onChange={(e) => setVinculoDataDesligamento(e.target.value)} />
+                  <Input placeholder="DD/MM/AAAA" value={vinculoDataDesligamento} onChange={(e) => setVinculoDataDesligamento(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Motivo do Desligamento</label>
-                  <Input placeholder="Motivo do desligamento" value={vinculoMotivoDesligamento} onChange={(e) => setVinculoMotivoDesligamento(e.target.value)} />
+                  <Input placeholder="Motivo do desligamento" value={vinculoMotivoDesligamento} onChange={(e) => setVinculoMotivoDesligamento(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Classificação Tributária</label>
-                  <Input placeholder="Ex: 99 - Pessoas Jurídicas em geral" value={vinculoClassificacaoTributaria} onChange={(e) => setVinculoClassificacaoTributaria(e.target.value)} />
+                  <Input placeholder="Ex: 99 - Pessoas Jurídicas em geral" value={vinculoClassificacaoTributaria} onChange={(e) => setVinculoClassificacaoTributaria(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Categoria do Trabalhador</label>
-                  <Input placeholder="Ex: 101" value={vinculoCategoriaTrabalhador} onChange={(e) => setVinculoCategoriaTrabalhador(e.target.value)} />
+                  <Input placeholder="Ex: 101" value={vinculoCategoriaTrabalhador} onChange={(e) => setVinculoCategoriaTrabalhador(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">CNAE</label>
-                  <Input placeholder="Ex: 2910701" value={vinculoCnae} onChange={(e) => setVinculoCnae(e.target.value)} />
+                  <Input placeholder="Ex: 2910701" value={vinculoCnae} onChange={(e) => setVinculoCnae(e.target.value)} readOnly={isClosed} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">CBO</label>
-                  <Input placeholder="Ex: 411010" value={vinculoCbo} onChange={(e) => setVinculoCbo(e.target.value)} />
+                  <Input placeholder="Ex: 411010" value={vinculoCbo} onChange={(e) => setVinculoCbo(e.target.value)} readOnly={isClosed} />
                 </div>
               </div>
+              {!isClosed && (
               <div className="flex justify-end">
                 <Button
                   size="sm"
@@ -1172,6 +1218,7 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
                   Salvar
                 </Button>
               </div>
+              )}
             </CardContent>
           </Card>
 

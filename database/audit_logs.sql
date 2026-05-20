@@ -1,8 +1,16 @@
 -- ─── Tabela de Logs de Auditoria ─────────────────────────────────────────────
 -- Registra todas as ações importantes do sistema para fins de auditoria.
 -- Execute este script no SQL Editor do Supabase.
+--
+-- NOTA: Este script cria a tabela já com o prefixo ouvidoria_ correto.
+-- Se você já executou o script antigo (que criava public.audit_logs) e ainda
+-- não executou rename_tables_ouvidoria_prefix.sql, execute primeiro:
+--   ALTER TABLE public.audit_logs RENAME TO ouvidoria_audit_logs;
+-- e depois aplique apenas as policies abaixo (BLOCO 2).
 
-CREATE TABLE IF NOT EXISTS public.audit_logs (
+-- ─── BLOCO 1: Criar tabela ────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.ouvidoria_audit_logs (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     action      VARCHAR(100) NOT NULL,           -- Ex: 'login', 'create_demand', 'update_demand'
     entity_type VARCHAR(50),                     -- Ex: 'demand', 'user', 'organ', 'auth', 'prompt'
@@ -18,37 +26,35 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 );
 
 -- Índices para consultas eficientes
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at   ON public.audit_logs (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id      ON public.audit_logs (user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action       ON public.audit_logs (action);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_type  ON public.audit_logs (entity_type);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_id    ON public.audit_logs (entity_id);
+CREATE INDEX IF NOT EXISTS idx_ouvidoria_audit_logs_created_at  ON public.ouvidoria_audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ouvidoria_audit_logs_user_id     ON public.ouvidoria_audit_logs (user_id);
+CREATE INDEX IF NOT EXISTS idx_ouvidoria_audit_logs_action      ON public.ouvidoria_audit_logs (action);
+CREATE INDEX IF NOT EXISTS idx_ouvidoria_audit_logs_entity_type ON public.ouvidoria_audit_logs (entity_type);
+CREATE INDEX IF NOT EXISTS idx_ouvidoria_audit_logs_entity_id   ON public.ouvidoria_audit_logs (entity_id);
 
 -- Comentários nas colunas
-COMMENT ON TABLE  public.audit_logs              IS 'Log de auditoria de todas as ações importantes do sistema';
-COMMENT ON COLUMN public.audit_logs.action       IS 'Tipo da ação: login, logout, create_demand, update_demand, create_user, update_user, create_organ, update_organ, generate_response, reject_response, assign_demand, update_prompts, reset_password, add_user_organ, remove_user_organ';
-COMMENT ON COLUMN public.audit_logs.entity_type  IS 'Tipo da entidade: auth, demand, user, organ, prompt, user_organ';
-COMMENT ON COLUMN public.audit_logs.entity_name  IS 'Identificador legível: protocolo da demanda, nome do usuário, sigla do órgão';
-COMMENT ON COLUMN public.audit_logs.old_values   IS 'Snapshot JSON do estado anterior (somente para operações de update)';
-COMMENT ON COLUMN public.audit_logs.new_values   IS 'Snapshot JSON do novo estado';
+COMMENT ON TABLE  public.ouvidoria_audit_logs              IS 'Log de auditoria de todas as ações importantes do sistema';
+COMMENT ON COLUMN public.ouvidoria_audit_logs.action       IS 'Tipo da ação: login, logout, create_demand, update_demand, create_user, update_user, create_organ, update_organ, generate_response, reject_response, assign_demand, update_prompts, reset_password, add_user_organ, remove_user_organ';
+COMMENT ON COLUMN public.ouvidoria_audit_logs.entity_type  IS 'Tipo da entidade: auth, demand, user, organ, prompt, user_organ';
+COMMENT ON COLUMN public.ouvidoria_audit_logs.entity_name  IS 'Identificador legível: protocolo da demanda, nome do usuário, sigla do órgão';
+COMMENT ON COLUMN public.ouvidoria_audit_logs.old_values   IS 'Snapshot JSON do estado anterior (somente para operações de update)';
+COMMENT ON COLUMN public.ouvidoria_audit_logs.new_values   IS 'Snapshot JSON do novo estado';
 
--- ─── Row Level Security ───────────────────────────────────────────────────────
+-- ─── BLOCO 2: Row Level Security ──────────────────────────────────────────────
 
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ouvidoria_audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Administradores podem ler todos os logs
+DROP POLICY IF EXISTS "admins_can_read_audit_logs" ON public.ouvidoria_audit_logs;
 CREATE POLICY "admins_can_read_audit_logs"
-    ON public.audit_logs
+    ON public.ouvidoria_audit_logs
     FOR SELECT
     USING (
         EXISTS (
-            SELECT 1 FROM public.users
+            SELECT 1 FROM public.ouvidoria_users
             WHERE id = auth.uid() AND role = 'administrador'
         )
     );
 
--- O sistema (service role) pode inserir logs
--- (INSERT via supabaseAdmin bypassa RLS)
-
--- Nenhum usuário pode deletar ou alterar logs
--- (sem policies de UPDATE/DELETE = bloqueado por RLS)
+-- O sistema (service role) pode inserir logs via supabaseAdmin (bypassa RLS).
+-- Nenhum usuário autenticado comum pode inserir, alterar ou deletar logs.
