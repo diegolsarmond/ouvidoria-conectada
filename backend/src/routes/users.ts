@@ -56,10 +56,15 @@ router.post('/', requireAuth as any, async (req, res) => {
       }
     }
     await client.query('COMMIT');
-    const user = await getUserWithOrgans(userId);
+    const { rows: userRows } = await client.query('SELECT * FROM ouvidoria_users WHERE id = $1', [userId]);
+    const { rows: organRows } = await client.query(
+      'SELECT organ_id FROM ouvidoria_user_organs WHERE user_id = $1',
+      [userId]
+    );
+    const user = { ...userRows[0], organ_ids: organRows.map((r: any) => r.organ_id) };
     res.status(201).json(user);
   } catch (err: any) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     if (err.code === '23505') {
       res.status(400).json({ error: 'Usuário já cadastrado com este e-mail, CPF ou matrícula.' });
       return;
@@ -98,10 +103,15 @@ router.put('/:id', requireAuth as any, async (req, res) => {
       }
     }
     await client.query('COMMIT');
-    const user = await getUserWithOrgans(req.params.id);
+    const { rows: userRows } = await client.query('SELECT * FROM ouvidoria_users WHERE id = $1', [req.params.id]);
+    const { rows: organRows } = await client.query(
+      'SELECT organ_id FROM ouvidoria_user_organs WHERE user_id = $1',
+      [req.params.id]
+    );
+    const user = { ...userRows[0], organ_ids: organRows.map((r: any) => r.organ_id) };
     res.json(user);
   } catch (err: any) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     if (err.code === '23505') {
       res.status(400).json({ error: 'Dados duplicados (e-mail, CPF ou matrícula já em uso).' });
       return;

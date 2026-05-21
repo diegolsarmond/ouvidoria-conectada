@@ -80,8 +80,8 @@ router.post('/', requireAuth as any, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO ouvidoria_demands
         (type, status, priority, organ_id, description, channel, anonymous,
-         citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline, protocol)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, fn_get_next_protocol())
        RETURNING id`,
       [p.type, p.status, p.priority, p.organ_id, p.description, p.channel,
        p.anonymous, p.citizen_name, p.citizen_cpf, p.citizen_phone, p.citizen_email, p.deadline]
@@ -103,8 +103,8 @@ router.post('/public', optionalAuth as any, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO ouvidoria_demands
         (type, status, priority, organ_id, description, channel, anonymous,
-         citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline, protocol)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, fn_get_next_protocol())
        RETURNING id`,
       [p.type, p.status, p.priority, p.organ_id, p.description, p.channel,
        p.anonymous, p.citizen_name, p.citizen_cpf, p.citizen_phone, p.citizen_email, p.deadline]

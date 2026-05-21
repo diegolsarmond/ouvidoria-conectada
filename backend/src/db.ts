@@ -10,9 +10,11 @@ export const pool = new Pool({
   user: config.db.user,
   password: config.db.password,
   ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  max: 10,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 5000,
 });
 
 pool.on('error', (err) => {
