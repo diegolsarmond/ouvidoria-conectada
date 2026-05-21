@@ -59,8 +59,7 @@ import {
   getUsers,
   logAudit,
 } from '@/lib/api';
-import { calcScore, getScoreBand, SCORE_BAND_CLASS, SCORE_BAND_LABEL, scoreTooltip } from '@/lib/priorityScore';
-import { supabase } from '@/lib/supabase';
+import { uploadFile, getPublicUrl } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -353,17 +352,9 @@ const DemandaDetalhe = () => {
       // Upload attachment if selected
       let attachmentUrl: string | null = null;
       if (selectedFile) {
-        const fileExt = selectedFile.name.split('.').pop();
         const filePath = `demands/${demand.id}/${Date.now()}_${selectedFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from('attachments')
-          .upload(filePath, selectedFile);
-        if (uploadError) throw new Error(`Erro ao enviar anexo: ${uploadError.message}`);
-
-        const { data: urlData } = supabase.storage
-          .from('attachments')
-          .getPublicUrl(filePath);
-        attachmentUrl = urlData.publicUrl;
+        const { publicUrl } = await uploadFile('attachments', filePath, selectedFile);
+        attachmentUrl = publicUrl;
       }
 
       const oldStatus = demand.status;
@@ -534,9 +525,11 @@ const DemandaDetalhe = () => {
   const handleGerarRespostaIA = async () => {
     if (!demand) return;
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
+    const apiKey = import.meta.env.VITE_LIA_API_KEY;
+    const apiUrl = import.meta.env.VITE_LIA_API_URL;
+    const apiModel = import.meta.env.VITE_LIA_API_MODEL;
+    if (!apiKey || !apiUrl) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_LIA_API_KEY e VITE_LIA_API_URL no arquivo .env.', variant: 'destructive' });
       return;
     }
 
@@ -590,12 +583,16 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 
     setGeneratingResposta(true);
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `${apiUrl}/api/chat/completions`;
       const response = await fetchWithRetry(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          model: apiModel,
+          messages: [{ role: 'user', content: prompt }],
         }),
       });
 
@@ -608,7 +605,7 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
       }
 
       const data = await response.json();
-      const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const generated = data?.choices?.[0]?.message?.content ?? '';
       if (generated) {
         setRespostaText(generated.trim());
         logAudit({
@@ -631,9 +628,11 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
   };
 
   const handleOcrProcess = async (file: File) => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_GEMINI_API_KEY no arquivo .env.', variant: 'destructive' });
+    const apiKey = import.meta.env.VITE_LIA_API_KEY;
+    const apiUrl = import.meta.env.VITE_LIA_API_URL;
+    const apiModel = import.meta.env.VITE_LIA_API_MODEL;
+    if (!apiKey || !apiUrl) {
+      toast({ title: 'Chave da API de IA não configurada.', description: 'Defina VITE_LIA_API_KEY e VITE_LIA_API_URL no arquivo .env.', variant: 'destructive' });
       return;
     }
 
@@ -654,18 +653,22 @@ Redija apenas o corpo da resposta ao cidadão, sem saudações genéricas desnec
 "vinculoClassificacaoTributaria", "vinculoCategoriaTrabalhador", "vinculoCnae", "vinculoCbo", "vinculoPeriodoReferencia".
 Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA PEREIRA DE PAULA", "cpf": "701.918.921-06", "dataNascimento": "14/07/1995", "situacaoCidadao": "", "sexo": "3 - Feminino", "nomeMae": "NEUZITA SALES PEREIRA DE PAULA", "exposicaoPolitica": "Pessoa Não Exposta Politicamente", "vinculoEmpregadorCnpj": "03.471.344", "vinculoEmpregadorNome": "CAOA MONTADORA DE VEICULOS LTDA", "vinculoMatricula": "C12S008520", "vinculoDataAdmissao": "03/11/2025", "vinculoDataInicioAtividade": "27/10/1999", "vinculoBloqueio": "0 - Sem Bloqueio", "vinculoElegivel": "NÃO", "vinculoMotivoInelegibilidade": "8 - Vínculo com empréstimo encerrado por término de vínculo anterior", "vinculoDataDesligamento": "", "vinculoMotivoDesligamento": "", "vinculoClassificacaoTributaria": "99 - Pessoas Jurídicas em geral", "vinculoCategoriaTrabalhador": "101", "vinculoCnae": "2910701", "vinculoCbo": "411010", "vinculoPeriodoReferencia": "01/2026"}`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `${apiUrl}/api/chat/completions`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+          model: apiModel,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
             ],
           }],
-          generationConfig: { responseMimeType: 'text/plain' },
         }),
       });
 
@@ -678,8 +681,8 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
       }
 
       const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-      console.log('[OCR Gemini response]', text);
+      const text = data?.choices?.[0]?.message?.content ?? '';
+      console.log('[OCR LIA response]', text);
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -887,18 +890,6 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
             <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${priorityClass(demand.priority)}`}>
               {PRIORITY_LABELS[demand.priority]}
             </span>
-            {(() => {
-              const s = calcScore(demand);
-              const band = getScoreBand(s.total);
-              return (
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${SCORE_BAND_CLASS[band]}`}
-                  title={scoreTooltip(s)}
-                >
-                  Score {s.total} · {SCORE_BAND_LABEL[band]}
-                </span>
-              );
-            })()}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {DEMAND_TYPE_LABELS[demand.type]} • {CHANNEL_LABELS[demand.channel]} • {demand.organName}

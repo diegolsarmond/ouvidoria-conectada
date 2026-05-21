@@ -12,31 +12,9 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
     proxy: {
-      '/auth': {
-        target: 'https://apiouvidoria.quantumtecnologia.com.br',
+      '/api': {
+        target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false,
-      },
-      '/rest': {
-        target: 'https://apiouvidoria.quantumtecnologia.com.br',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/storage': {
-        target: 'https://apiouvidoria.quantumtecnologia.com.br',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/realtime': {
-        target: 'https://apiouvidoria.quantumtecnologia.com.br',
-        changeOrigin: true,
-        secure: false,
-        ws: true,
-      },
-      '/functions': {
-        target: 'https://apiouvidoria.quantumtecnologia.com.br',
-        changeOrigin: true,
-        secure: false,
       },
     },
   },

@@ -5,7 +5,19 @@
       "Bash(node -e \":*)",
       "Bash(npm run:*)",
       "Bash(grep -B 5 -A 5 \"recorrente\" /c/Users/Diego/Desktop/ouvidoria-conectada/database/*.sql)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+<<<<<<< HEAD
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit -m 'chore: update local Claude settings *)"
+=======
+      "Bash(mkdir -p \"c:/GIT/ouvidoria-conectada/backend/src/routes\" \"c:/GIT/ouvidoria-conectada/backend/src/utils\" \"c:/GIT/ouvidoria-conectada/backend/src/middleware\" \"c:/GIT/ouvidoria-conectada/backend/uploads\")",
+      "Bash(npm install *)"
+    ],
+    "additionalDirectories": [
+      "c:\\GIT\\ouvidoria-conectada\\backend\\src",
+      "c:\\Users\\gabri\\.claude\\projects\\c--GIT-ouvidoria-conectada\\memory"
+>>>>>>> 6978cb30a91f34c6fd8b80188f832dd9694aba6a
     ]
   }
 }

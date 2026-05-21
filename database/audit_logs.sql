@@ -1,14 +1,10 @@
 -- ─── Tabela de Logs de Auditoria ─────────────────────────────────────────────
 -- Registra todas as ações importantes do sistema para fins de auditoria.
--- Execute este script no SQL Editor do Supabase.
---
--- NOTA: Este script cria a tabela já com o prefixo ouvidoria_ correto.
--- Se você já executou o script antigo (que criava public.audit_logs) e ainda
--- não executou rename_tables_ouvidoria_prefix.sql, execute primeiro:
---   ALTER TABLE public.audit_logs RENAME TO ouvidoria_audit_logs;
--- e depois aplique apenas as policies abaixo (BLOCO 2).
+-- Execute este script diretamente no banco PostgreSQL.
 
 -- ─── BLOCO 1: Criar tabela ────────────────────────────────────────────────────
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS public.ouvidoria_audit_logs (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -16,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.ouvidoria_audit_logs (
     entity_type VARCHAR(50),                     -- Ex: 'demand', 'user', 'organ', 'auth', 'prompt'
     entity_id   VARCHAR(255),                    -- UUID ou ID da entidade afetada
     entity_name VARCHAR(500),                    -- Nome/protocolo legível (para histórico)
-    user_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    user_id     UUID REFERENCES public.ouvidoria_users(id) ON DELETE SET NULL,
     user_name   VARCHAR(255),                    -- Denormalizado para preservar histórico
     user_role   VARCHAR(50),                     -- Papel do usuário no momento da ação
     description TEXT,                            -- Descrição legível do que ocorreu
@@ -39,22 +35,3 @@ COMMENT ON COLUMN public.ouvidoria_audit_logs.entity_type  IS 'Tipo da entidade:
 COMMENT ON COLUMN public.ouvidoria_audit_logs.entity_name  IS 'Identificador legível: protocolo da demanda, nome do usuário, sigla do órgão';
 COMMENT ON COLUMN public.ouvidoria_audit_logs.old_values   IS 'Snapshot JSON do estado anterior (somente para operações de update)';
 COMMENT ON COLUMN public.ouvidoria_audit_logs.new_values   IS 'Snapshot JSON do novo estado';
-
--- ─── BLOCO 2: Row Level Security ──────────────────────────────────────────────
-
-ALTER TABLE public.ouvidoria_audit_logs ENABLE ROW LEVEL SECURITY;
-
--- Administradores podem ler todos os logs
-DROP POLICY IF EXISTS "admins_can_read_audit_logs" ON public.ouvidoria_audit_logs;
-CREATE POLICY "admins_can_read_audit_logs"
-    ON public.ouvidoria_audit_logs
-    FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.ouvidoria_users
-            WHERE id = auth.uid() AND role = 'administrador'
-        )
-    );
-
--- O sistema (service role) pode inserir logs via supabaseAdmin (bypassa RLS).
--- Nenhum usuário autenticado comum pode inserir, alterar ou deletar logs.
