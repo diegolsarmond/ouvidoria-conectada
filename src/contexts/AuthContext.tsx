@@ -67,15 +67,30 @@ async function withRetry<T>(
     }
 }
 
+/** In-flight guard – prevents concurrent fetchProfile calls for the same user */
+let _fetchProfilePromise: Promise<User | null> | null = null;
+let _fetchProfileUserId: string | null = null;
+
 /** Fetch profile with a hard timeout to avoid hanging forever */
-async function fetchProfile(userId: string, timeoutMs = 8000): Promise<User | null> {
-    return Promise.race([
-        withRetry(() => fetchProfileInner(userId), 3, 1000),
+async function fetchProfile(userId: string, timeoutMs = 10000): Promise<User | null> {
+    // Reuse in-flight promise if same user is already being fetched
+    if (_fetchProfilePromise && _fetchProfileUserId === userId) {
+        return _fetchProfilePromise;
+    }
+
+    _fetchProfileUserId = userId;
+    _fetchProfilePromise = Promise.race([
+        withRetry(() => fetchProfileInner(userId), 1, 500),
         new Promise<never>((_, reject) => setTimeout(() => {
             console.warn('[AuthContext] fetchProfile timed out');
             reject(new Error('Timeout ao buscar perfil'));
         }, timeoutMs)),
-    ]);
+    ]).finally(() => {
+        _fetchProfilePromise = null;
+        _fetchProfileUserId = null;
+    });
+
+    return _fetchProfilePromise;
 }
 
 async function fetchProfileInner(userId: string): Promise<User | null> {
@@ -221,8 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const currentProfile = profileRef.current;
                 const needsFetch =
                     event === 'SIGNED_IN' ||
-                    !currentProfile ||
-                    currentProfile.id !== newSession.user.id;
+                    (event !== 'TOKEN_REFRESHED' && (!currentProfile || currentProfile.id !== newSession.user.id));
 
                 if (needsFetch) {
                     // Fire-and-forget profile fetch
