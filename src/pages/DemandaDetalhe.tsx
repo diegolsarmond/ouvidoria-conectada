@@ -59,7 +59,6 @@ import {
   getUsers,
   logAudit,
 } from '@/lib/api';
-import { calcScore, getScoreBand, SCORE_BAND_CLASS, SCORE_BAND_LABEL, scoreTooltip } from '@/lib/priorityScore';
 import { uploadFile, getPublicUrl } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -891,18 +890,6 @@ Datas devem estar no formato DD/MM/AAAA. Exemplo de resposta: {"nome": "JESSICA 
             <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${priorityClass(demand.priority)}`}>
               {PRIORITY_LABELS[demand.priority]}
             </span>
-            {(() => {
-              const s = calcScore(demand);
-              const band = getScoreBand(s.total);
-              return (
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${SCORE_BAND_CLASS[band]}`}
-                  title={scoreTooltip(s)}
-                >
-                  Score {s.total} · {SCORE_BAND_LABEL[band]}
-                </span>
-              );
-            })()}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {DEMAND_TYPE_LABELS[demand.type]} • {CHANNEL_LABELS[demand.channel]} • {demand.organName}
