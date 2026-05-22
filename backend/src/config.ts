@@ -13,5 +13,5 @@ export const config = {
   },
   uploadsDir: process.env.UPLOADS_DIR || './uploads',
   // Permite múltiplos origins separados por vírgula (ex: 'http://localhost:8080,http://192.168.30.9:4173')
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8080,http://192.168.30.9:4173',
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8080,http://192.168.30.9:4173,http://192.168.30.9:8080',
 };
