@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Loader2, Save, Sparkles, Upload } from 'lucide-react';
 import { getAssistantPrompts, updateAssistantPrompts, upsertAssistantPrompts, uploadKnowledgeBasePdf, logAudit } from '@/lib/api';
@@ -14,7 +14,7 @@ import type { AssistantPrompts } from '@/types/ouvidoria';
 const AssistantPromptsPage = () => {
     const queryClient = useQueryClient();
     const { profile } = useAuth();
-    const [activeTab, setActiveTab] = useState<string>('orquestrador');
+    const [activeTab, setActiveTab] = useState<string>('baseConhecimento');
     const [promptsContent, setPromptsContent] = useState<Partial<AssistantPrompts>>({});
     const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
@@ -101,12 +101,6 @@ const AssistantPromptsPage = () => {
     }
 
     const promptTypes = [
-        { slug: 'saudacao' as keyof AssistantPrompts, label: 'Saudação', description: 'Mensagem de boas-vindas e apresentação inicial do assistente.' },
-        { slug: 'orquestrador' as keyof AssistantPrompts, label: 'Orquestrador', description: 'Prompt principal que decide qual assistente deve ser acionado.' },
-        { slug: 'triagem' as keyof AssistantPrompts, label: 'Triagem', description: 'Diretrizes para coletar informações iniciais da manifestação.' },
-        { slug: 'cadastro' as keyof AssistantPrompts, label: 'Cadastro de Manifestação', description: 'Diretrizes para o assistente que auxilia o cidadão a registrar uma nova manifestação.' },
-        { slug: 'consulta' as keyof AssistantPrompts, label: 'Consulta de Manifestação', description: 'Diretrizes para o assistente que ajuda o cidadão a consultar o status de manifestações existentes.' },
-        { slug: 'atendimento' as keyof AssistantPrompts, label: 'Atendimento Humano', description: 'Instruções para quando a conversa deve ser transferida para um atendente humano.' },
         { slug: 'baseConhecimento' as keyof AssistantPrompts, label: 'Base de Conhecimento', description: 'Informações e diretrizes gerais sobre as políticas e procedimentos da ouvidoria.' },
     ];
 
@@ -123,14 +117,6 @@ const AssistantPromptsPage = () => {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-4 h-auto p-1 bg-muted/50">
-                    {promptTypes.map((type) => (
-                        <TabsTrigger key={type.slug} value={type.slug} className="py-2.5 text-xs font-semibold">
-                            {type.label}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-
                 {promptTypes.map((type) => {
                     const originalContent = (prompts?.[type.slug] as string) || '';
                     const currentContent = (promptsContent[type.slug] as string) || '';
