@@ -12,5 +12,6 @@ export const config = {
     ssl: process.env.DB_SSL === 'true',
   },
   uploadsDir: process.env.UPLOADS_DIR || './uploads',
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8080',
+  // Permite múltiplos origins separados por vírgula (ex: 'http://localhost:8080,http://192.168.30.9:4173')
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8080,http://192.168.30.9:4173',
 };
