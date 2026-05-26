@@ -10,7 +10,11 @@ import {
   type StoredAuth,
 } from '@/lib/api-client';
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+let apiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? import.meta.env.BASE_URL ?? '';
+if (apiBaseUrl.endsWith('/')) {
+  apiBaseUrl = apiBaseUrl.slice(0, -1);
+}
+const BASE_URL = apiBaseUrl;
 
 // ── Tipos públicos (mantidos compatíveis com o uso anterior) ──────────────────
 

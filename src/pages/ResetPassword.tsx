@@ -6,7 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Shield, Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+let apiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? import.meta.env.BASE_URL ?? '';
+if (apiBaseUrl.endsWith('/')) {
+  apiBaseUrl = apiBaseUrl.slice(0, -1);
+}
+const BASE_URL = apiBaseUrl;
 
 const ResetPassword = () => {
   const navigate = useNavigate();

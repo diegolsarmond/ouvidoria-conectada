@@ -1,7 +1,11 @@
 // Cliente HTTP que substitui o @supabase/supabase-js
 // Todas as chamadas vão para o backend Express via /api/*
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+let apiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? import.meta.env.BASE_URL ?? '';
+if (apiBaseUrl.endsWith('/')) {
+  apiBaseUrl = apiBaseUrl.slice(0, -1);
+}
+const BASE_URL = apiBaseUrl;
 
 const STORAGE_KEY = 'ouvidoria-auth';
 
