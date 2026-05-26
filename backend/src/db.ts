@@ -37,13 +37,13 @@ export async function syncProtocolSequence() {
       SELECT MAX(seq) as max_val FROM (
         SELECT CAST(SUBSTRING(protocol FROM 5) AS INTEGER) as seq
         FROM ouvidoria_demands
-        WHERE protocol ~ '^\\d{10}$' AND protocol LIKE $1
+        WHERE protocol ~ '^[0-9]+$' AND protocol LIKE $1
         
         UNION ALL
         
         SELECT CAST(SUBSTRING(protocolo FROM 5) AS INTEGER) as seq
         FROM ouvidoria_conversas_ativas
-        WHERE protocolo ~ '^\\d{10}$' AND protocolo LIKE $1
+        WHERE protocolo ~ '^[0-9]+$' AND protocolo LIKE $1
       ) t
     `;
     const { rows } = await pool.query(query, [`${currentYear}%`]);
