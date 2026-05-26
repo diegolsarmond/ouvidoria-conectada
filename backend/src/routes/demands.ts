@@ -74,11 +74,13 @@ function buildInsertPayload(input: Record<string, any>) {
 }
 
 async function insertDemand(p: any): Promise<any> {
+  // protocol is omitted here — the DB trigger (trg_ouvidoria_generate_protocol /
+  // trg_generate_demand_protocol) sets it automatically on INSERT.
   const queryStr = `
     INSERT INTO ouvidoria_demands
       (type, status, priority, organ_id, description, channel, anonymous,
-       citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline, protocol)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, fn_get_next_protocol())
+       citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING id
   `;
   const params = [

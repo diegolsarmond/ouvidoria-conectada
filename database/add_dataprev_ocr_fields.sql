@@ -68,7 +68,7 @@ COMMENT ON COLUMN ouvidoria_demands.vinculo_periodo_referencia       IS 'Períod
 ALTER TABLE ouvidoria_demands
   ADD COLUMN IF NOT EXISTS dataprev_ocr_raw         JSONB,
   ADD COLUMN IF NOT EXISTS dataprev_ocr_extraido_em TIMESTAMP,
-  ADD COLUMN IF NOT EXISTS dataprev_ocr_usuario_id  UUID REFERENCES users(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS dataprev_ocr_usuario_id  UUID REFERENCES ouvidoria_users(id) ON DELETE SET NULL;
 
 COMMENT ON COLUMN ouvidoria_demands.dataprev_ocr_raw         IS 'Payload JSON completo retornado pelo OCR da tela Dataprev (para reprocessamento futuro)';
 COMMENT ON COLUMN ouvidoria_demands.dataprev_ocr_extraido_em IS 'Data/hora em que a extração OCR foi realizada';

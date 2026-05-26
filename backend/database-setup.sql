@@ -197,22 +197,31 @@ CREATE TABLE IF NOT EXISTS ouvidoria_audit_logs (
 );
 
 -- -----------------------------------------------------------------------------
+-- Sequence + função para gerar protocolo (AAAA + 6 dígitos, baseado em sequência)
+-- -----------------------------------------------------------------------------
+CREATE SEQUENCE IF NOT EXISTS protocol_seq START 1;
+
+CREATE OR REPLACE FUNCTION fn_get_next_protocol()
+RETURNS TEXT AS $$
+DECLARE
+    current_year TEXT;
+    seq_val BIGINT;
+BEGIN
+    current_year := to_char(CURRENT_DATE, 'YYYY');
+    seq_val := nextval('protocol_seq');
+    RETURN current_year || lpad(seq_val::TEXT, 6, '0');
+END;
+$$ LANGUAGE plpgsql;
+
+-- -----------------------------------------------------------------------------
 -- Trigger: gera protocolo automático nas demandas
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION ouvidoria_generate_protocol()
 RETURNS TRIGGER AS $$
-DECLARE
-    year_prefix TEXT;
-    seq_num     INTEGER;
 BEGIN
-    IF NEW.protocol IS NOT NULL AND NEW.protocol <> '' THEN
-        RETURN NEW;
+    IF NEW.protocol IS NULL OR NEW.protocol = '' THEN
+        NEW.protocol := fn_get_next_protocol();
     END IF;
-    year_prefix := TO_CHAR(NOW(), 'YYYY');
-    SELECT COUNT(*) + 1 INTO seq_num
-    FROM ouvidoria_demands
-    WHERE EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM NOW());
-    NEW.protocol := year_prefix || LPAD(seq_num::TEXT, 6, '0');
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
