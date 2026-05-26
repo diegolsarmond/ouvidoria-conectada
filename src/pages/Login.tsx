@@ -189,7 +189,7 @@ const Login = () => {
             {/* Logo maior e levemente elevada */}
             <div className="-mt-8 mb-6">
               <img
-                src="/Logo_dataprev_Preferencial-01.png"
+                src={`${import.meta.env.BASE_URL}Logo_dataprev_Preferencial-01.png`}
                 alt="Dataprev"
                 className="h-56 object-contain"
               />
@@ -214,7 +214,7 @@ const Login = () => {
             {/* Mobile logo */}
             <div className="lg:hidden flex items-center justify-center mb-8">
               <img
-                src="/Logo_dataprev_Preferencial-01.png"
+                src={`${import.meta.env.BASE_URL}Logo_dataprev_Preferencial-01.png`}
                 alt="Dataprev"
                 className="h-12 object-contain"
               />

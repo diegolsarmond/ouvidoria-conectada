@@ -66,7 +66,7 @@ const AppLayout = () => {
           <div className="px-4 py-4 flex items-center justify-between border-b border-sidebar-border relative">
             <div className="bg-white rounded-xl px-4 py-2 flex items-center justify-center w-full shadow-sm">
               <img
-                src="/Captura de tela 2026-04-07 151853.png"
+                src={`${import.meta.env.BASE_URL}Captura de tela 2026-04-07 151853.png`}
                 alt="Dataprev"
                 className="h-10 object-contain w-full"
               />
