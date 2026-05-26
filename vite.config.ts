@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      allowedHosts: ["inovacao.dataprev.gov.br"],
       hmr: {
         overlay: false,
       },
@@ -31,6 +32,7 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: "::",
       port: 8080,
+      allowedHosts: ["inovacao.dataprev.gov.br"],
       proxy: {
         '/ouvidoria/api': {
           target: 'http://192.168.30.9:3002',
