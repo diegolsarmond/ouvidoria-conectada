@@ -60,7 +60,7 @@ export default function NovaDemandaPublica() {
             priority: 'media',
             organId: form.organId,
             description: form.description,
-            channel: 'internet',
+            channel: 'outros',
             anonymous: form.anonymous,
             citizenName: form.anonymous ? undefined : form.citizenName,
             citizenCpf: form.anonymous ? undefined : form.citizenCpf,

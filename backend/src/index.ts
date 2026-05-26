@@ -11,7 +11,7 @@ import historyRoutes from './routes/history.js';
 import auditRoutes from './routes/audit.js';
 import promptsRoutes from './routes/prompts.js';
 import storageRoutes from './routes/storage.js';
-import { pool } from './db.js';
+import { pool, syncProtocolSequence } from './db.js';
 
 const app = express();
 
@@ -48,6 +48,9 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
-app.listen(config.port, () => {
-  console.log(`[server] Backend rodando em http://localhost:${config.port}`);
+// Synchronize sequence on startup and start listening
+syncProtocolSequence().finally(() => {
+  app.listen(config.port, () => {
+    console.log(`[server] Backend rodando em http://localhost:${config.port}`);
+  });
 });

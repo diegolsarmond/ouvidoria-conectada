@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { pool } from '../db.js';
+import { pool, syncProtocolSequence } from '../db.js';
 import { requireAuth, optionalAuth, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -73,19 +73,37 @@ function buildInsertPayload(input: Record<string, any>) {
   };
 }
 
+async function insertDemand(p: any): Promise<any> {
+  const queryStr = `
+    INSERT INTO ouvidoria_demands
+      (type, status, priority, organ_id, description, channel, anonymous,
+       citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline, protocol)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, fn_get_next_protocol())
+     RETURNING id
+  `;
+  const params = [
+    p.type, p.status, p.priority, p.organ_id, p.description, p.channel,
+    p.anonymous, p.citizen_name, p.citizen_cpf, p.citizen_phone, p.citizen_email, p.deadline
+  ];
+  
+  try {
+    return await pool.query(queryStr, params);
+  } catch (err: any) {
+    // If it's a unique constraint violation on protocol, sync and retry
+    if (err.code === '23505' && (err.constraint === 'demands_protocol_key' || String(err.message).includes('protocol'))) {
+      console.warn('[demands] Protocol collision detected. Synchronizing sequence and retrying...');
+      await syncProtocolSequence();
+      return await pool.query(queryStr, params);
+    }
+    throw err;
+  }
+}
+
 // POST /api/demands
 router.post('/', requireAuth as any, async (req, res) => {
   const p = buildInsertPayload(req.body);
   try {
-    const { rows } = await pool.query(
-      `INSERT INTO ouvidoria_demands
-        (type, status, priority, organ_id, description, channel, anonymous,
-         citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline, protocol)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, fn_get_next_protocol())
-       RETURNING id`,
-      [p.type, p.status, p.priority, p.organ_id, p.description, p.channel,
-       p.anonymous, p.citizen_name, p.citizen_cpf, p.citizen_phone, p.citizen_email, p.deadline]
-    );
+    const { rows } = await insertDemand(p);
     const { rows: full } = await pool.query(
       `SELECT ${DEMAND_SELECT} WHERE d.id = $1`, [rows[0].id]
     );
@@ -100,15 +118,7 @@ router.post('/', requireAuth as any, async (req, res) => {
 router.post('/public', optionalAuth as any, async (req, res) => {
   const p = buildInsertPayload(req.body);
   try {
-    const { rows } = await pool.query(
-      `INSERT INTO ouvidoria_demands
-        (type, status, priority, organ_id, description, channel, anonymous,
-         citizen_name, citizen_cpf, citizen_phone, citizen_email, deadline, protocol)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, fn_get_next_protocol())
-       RETURNING id`,
-      [p.type, p.status, p.priority, p.organ_id, p.description, p.channel,
-       p.anonymous, p.citizen_name, p.citizen_cpf, p.citizen_phone, p.citizen_email, p.deadline]
-    );
+    const { rows } = await insertDemand(p);
     const { rows: full } = await pool.query(
       `SELECT ${DEMAND_SELECT} WHERE d.id = $1`, [rows[0].id]
     );

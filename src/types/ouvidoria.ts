@@ -1,7 +1,7 @@
 export type DemandType = 'reclamacao' | 'denuncia' | 'elogio' | 'sugestao' | 'solicitacao';
 export type DemandStatus = 'registrada' | 'em_analise' | 'em_atendimento' | 'respondida' | 'concluida' | 'cancelada';
 export type DemandPriority = 'baixa' | 'media' | 'alta' | 'urgente';
-export type EntryChannel = 'whatsapp' | 'presencial' | 'telefone' | 'email' | 'internet';
+export type EntryChannel = 'ouvidoria' | 'falabr' | 'mte' | 'outros';
 export type UserRole = 'administrador' | 'ouvidor' | 'atendente' | 'gestor_orgao';
 
 export interface Organ {
@@ -140,11 +140,10 @@ export const PRIORITY_LABELS: Record<DemandPriority, string> = {
 };
 
 export const CHANNEL_LABELS: Record<EntryChannel, string> = {
-  whatsapp: 'WhatsApp',
-  presencial: 'Presencial',
-  telefone: 'Telefone',
-  email: 'Email',
-  internet: 'Internet',
+  ouvidoria: 'Ouvidoria',
+  falabr: 'FalaBR',
+  mte: 'MTE',
+  outros: 'Outros',
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
