@@ -1,0 +1,19 @@
+services:
+  frontend:
+    build:
+      context: .
+    image: ouvidoria-front
+    container_name: ouvidoria-front
+    restart: unless-stopped
+    ports:
+      - "80:80"
+
+  backend:
+    build:
+      context: ./backend
+    image: ouvidoria-back
+    container_name: ouvidoria-back
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - ./backend/.env
