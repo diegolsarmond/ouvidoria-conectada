@@ -21,8 +21,8 @@ FROM nginx:alpine AS production
 # Copiar configuração customizada do Nginx para SPA
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copiar os arquivos gerados pelo build
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copiar os arquivos gerados pelo build para o subdiretório /ouvidoria
+COPY --from=build /app/dist /usr/share/nginx/html/ouvidoria
 
 # Expor a porta 80
 EXPOSE 80
